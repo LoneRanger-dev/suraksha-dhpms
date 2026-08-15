@@ -48,7 +48,7 @@ export default function ReceptionScannerPage() {
         </div>
       </div>
 
-      <QrReaderModal onClose={() => {}} authToken={token} doctors={doctors} />
+      <QrReaderModal onClose={() => {}} authToken={token} doctors={doctors} staffRole={role} />
     </main>
   );
 }

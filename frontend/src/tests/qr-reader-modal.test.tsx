@@ -2,6 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const pushMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock, replace: vi.fn() }),
+}));
+
 import { QrReaderModal } from "@/components/qr/QrReaderModal";
 
 const startMock = vi.fn();
@@ -18,6 +23,7 @@ describe("QrReaderModal", () => {
   beforeEach(() => {
     startMock.mockReset();
     stopMock.mockClear();
+    pushMock.mockClear();
   });
 
   it("shows the manual token fallback when the camera fails to start", async () => {
@@ -104,6 +110,62 @@ describe("QrReaderModal", () => {
     await user.click(screen.getByRole("button", { name: /generate queue token/i }));
 
     expect(await screen.findByText(/CARDIO-001/)).toBeInTheDocument();
+  });
+
+  it("lets a billing-eligible staff role send a looked-up patient to billing", async () => {
+    startMock.mockRejectedValue(new Error("camera denied"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          patient_id: "33333333-3333-3333-3333-333333333333",
+          full_name: "Manvith M N",
+          blood_group: "B+",
+          allergies: "None",
+        }),
+      })
+    );
+
+    const user = userEvent.setup();
+    render(<QrReaderModal onClose={() => {}} authToken="staff-token" staffRole="RECEPTIONIST" />);
+
+    const input = await screen.findByLabelText(/patient id or token/i);
+    await user.type(input, "11111111-1111-1111-1111-111111111111");
+    await user.click(screen.getByRole("button", { name: /look up/i }));
+    await screen.findByText("Manvith M N");
+
+    await user.click(screen.getByRole("button", { name: /bill patient/i }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/billing\/invoices\?patientId=33333333-3333-3333-3333-333333333333&patientName=/)
+    );
+  });
+
+  it("hides the billing action for a role that cannot create invoices", async () => {
+    startMock.mockRejectedValue(new Error("camera denied"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          patient_id: "44444444-4444-4444-4444-444444444444",
+          full_name: "Manvith M N",
+          blood_group: "B+",
+          allergies: "None",
+        }),
+      })
+    );
+
+    const user = userEvent.setup();
+    render(<QrReaderModal onClose={() => {}} authToken="staff-token" staffRole="NURSE" />);
+
+    const input = await screen.findByLabelText(/patient id or token/i);
+    await user.type(input, "11111111-1111-1111-1111-111111111111");
+    await user.click(screen.getByRole("button", { name: /look up/i }));
+    await screen.findByText("Manvith M N");
+
+    expect(screen.queryByRole("button", { name: /bill patient/i })).not.toBeInTheDocument();
   });
 
   it("does not crash on unmount when the scanner never actually started (e.g. no camera)", async () => {

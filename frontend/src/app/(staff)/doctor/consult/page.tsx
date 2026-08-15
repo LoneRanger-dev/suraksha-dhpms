@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { VitalsForm, type VitalsFormValues } from "@/components/clinical/VitalsForm";
@@ -29,7 +30,6 @@ const inputClass =
 
 function ConsultPageContent() {
   const { token } = useRequireAuth(["DOCTOR"]);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const doctorFullName = useAuthStore((state) => state.doctorFullName);
 
@@ -268,16 +268,15 @@ function ConsultPageContent() {
 
           {prescriptionSaved ? (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-semibold text-success">Prescription saved.</p>
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(`/billing/invoices?patientId=${patientId}&visitId=${visitId}&patientName=${encodeURIComponent(patientName)}`)
-                }
+              <p className="text-sm font-semibold text-success">
+                Prescription saved. This patient is ready for billing at reception.
+              </p>
+              <Link
+                href="/doctor/dashboard"
                 className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                Send to Billing
-              </button>
+                Back to Queue
+              </Link>
             </div>
           ) : (
             <button

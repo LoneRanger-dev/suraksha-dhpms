@@ -56,4 +56,32 @@ describe("ConsultPage", () => {
 
     expect(await screen.findByText(/^prescription$/i)).toBeInTheDocument();
   });
+
+  it("sends the doctor back to their queue after saving a prescription, not to the billing page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (String(url).includes("/prescriptions")) {
+          return Promise.resolve({ ok: true, json: async () => ({ prescription_id: "rx1", items: [] }) });
+        }
+        if (String(url).includes("/consultations/visits")) {
+          return Promise.resolve({ ok: true, json: async () => ({ visit_id: "v1", diagnosis: "Viral fever" }) });
+        }
+        return Promise.reject(new Error(`unexpected url ${url}`));
+      })
+    );
+
+    const user = userEvent.setup();
+    render(<ConsultPage />);
+
+    await user.type(screen.getByLabelText(/chief complaint/i), "Fever");
+    await user.type(screen.getByLabelText(/diagnosis/i), "Viral fever");
+    await user.click(screen.getByRole("button", { name: /save visit/i }));
+    await screen.findByText(/^prescription$/i);
+    await user.click(screen.getByRole("button", { name: /save prescription/i }));
+
+    const backLink = await screen.findByRole("link", { name: /back to queue/i });
+    expect(backLink.getAttribute("href")).toBe("/doctor/dashboard");
+    expect(screen.queryByRole("button", { name: /send to billing/i })).not.toBeInTheDocument();
+  });
 });
