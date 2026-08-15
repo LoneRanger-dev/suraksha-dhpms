@@ -31,6 +31,15 @@ describe("QrReaderModal", () => {
     render(<QrReaderModal onClose={() => {}} />);
 
     expect(await screen.findByLabelText(/patient id or token/i)).toBeInTheDocument();
+    expect(screen.getByText(/camera unavailable/i)).toBeInTheDocument();
+  });
+
+  it("also offers manual token entry when the camera starts successfully, since there may be no physical QR card to scan", async () => {
+    startMock.mockResolvedValue(undefined);
+    render(<QrReaderModal onClose={() => {}} />);
+
+    expect(await screen.findByLabelText(/patient id or token/i)).toBeInTheDocument();
+    expect(screen.queryByText(/camera unavailable/i)).not.toBeInTheDocument();
   });
 
   it("looks up a manually entered token and renders the patient snapshot with an allergy alert", async () => {

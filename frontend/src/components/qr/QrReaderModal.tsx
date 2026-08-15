@@ -157,29 +157,29 @@ export function QrReaderModal({ onClose, authToken, doctors, staffRole }: QrRead
     >
       <div id="qr-reader-region" className="aspect-square w-full overflow-hidden rounded-md bg-muted" />
 
-      {cameraError && (
-        <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
+        {cameraError && (
           <p className="text-sm text-warning">Camera unavailable. Enter the token manually.</p>
-          <label htmlFor="manual-scan-token" className="text-sm font-medium text-foreground">
-            Patient ID or Token
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="manual-scan-token"
-              value={manualInput}
-              onChange={(event) => setManualInput(event.target.value)}
-              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              type="button"
-              onClick={() => lookupToken(manualInput.trim())}
-              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              Look up
-            </button>
-          </div>
+        )}
+        <label htmlFor="manual-scan-token" className="text-sm font-medium text-foreground">
+          Patient ID or Token
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="manual-scan-token"
+            value={manualInput}
+            onChange={(event) => setManualInput(event.target.value)}
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={() => lookupToken(manualInput.trim())}
+            className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Look up
+          </button>
         </div>
-      )}
+      </div>
 
       {fetchError && <p className="text-sm text-destructive">{fetchError}</p>}
 
