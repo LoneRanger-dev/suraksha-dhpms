@@ -70,5 +70,26 @@ describe("RegisterPage", () => {
       )
     );
     expect(await screen.findByText(/SUR-2026-000001/)).toBeInTheDocument();
+
+    const homeLink = screen.getByRole("link", { name: /back to home/i });
+    expect(homeLink.getAttribute("href")).toBe("/");
+    expect(screen.getByRole("button", { name: /register another patient/i })).toBeInTheDocument();
+  });
+
+  it("lets staff register another patient without leaving the page", async () => {
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+    await screen.findByRole("option", { name: /free/i });
+
+    await user.type(screen.getByLabelText(/full name/i), "Test Patient");
+    await user.type(screen.getByLabelText(/date of birth/i), "1990-01-01");
+    await user.type(screen.getByLabelText(/emergency contact phone/i), "+919876543210");
+    await user.click(screen.getByRole("button", { name: /register/i }));
+    await screen.findByText(/SUR-2026-000001/);
+
+    await user.click(screen.getByRole("button", { name: /register another patient/i }));
+
+    expect(screen.getByRole("heading", { name: /^register$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/full name/i)).toHaveValue("");
   });
 });

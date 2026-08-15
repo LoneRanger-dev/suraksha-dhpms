@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -68,6 +69,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     setValue,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
@@ -112,6 +114,21 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">
           {registered.full_name}&apos;s health card is ready. Card status: {registered.qr_card.status}.
         </p>
+        <div className="mt-2 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              setRegistered(null);
+              reset({ gender: "MALE", plan_id: plans[0]?.plan_id ?? "" });
+            }}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Register Another Patient
+          </button>
+          <Link href="/" className="text-sm text-muted-foreground underline">
+            Back to Home
+          </Link>
+        </div>
       </main>
     );
   }
