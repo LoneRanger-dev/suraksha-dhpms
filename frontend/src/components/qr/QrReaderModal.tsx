@@ -89,7 +89,13 @@ export function QrReaderModal({ onClose, authToken, doctors }: QrReaderModalProp
 
     return () => {
       cancelled = true;
-      scannerRef.current?.stop().catch(() => {});
+      try {
+        scannerRef.current?.stop().catch(() => {});
+      } catch {
+        // Scanner was constructed but never entered a running/paused state
+        // (e.g. camera access failed) — html5-qrcode's stop() throws
+        // synchronously in that case instead of rejecting.
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

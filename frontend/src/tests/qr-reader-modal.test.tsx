@@ -105,4 +105,18 @@ describe("QrReaderModal", () => {
 
     expect(await screen.findByText(/CARDIO-001/)).toBeInTheDocument();
   });
+
+  it("does not crash on unmount when the scanner never actually started (e.g. no camera)", async () => {
+    startMock.mockRejectedValue(new Error("camera denied"));
+    stopMock.mockImplementation(() => {
+      throw new Error("Cannot stop, scanner is not running or paused.");
+    });
+
+    const { unmount } = render(<QrReaderModal onClose={() => {}} />);
+    await screen.findByLabelText(/patient id or token/i);
+
+    expect(() => unmount()).not.toThrow();
+
+    stopMock.mockResolvedValue(undefined);
+  });
 });
