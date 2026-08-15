@@ -59,11 +59,8 @@ export default function Home() {
             Suraksha DHPMS
           </span>
           <nav className="flex items-center gap-2">
-            <Link href="/reception/scanner" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-              Reception
-            </Link>
-            <Link href="/doctor/dashboard" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-              Doctor
+            <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+              Log In
             </Link>
             <Link href="/register" className={cn(buttonVariants({ variant: "default", size: "sm" }))}>
               Register

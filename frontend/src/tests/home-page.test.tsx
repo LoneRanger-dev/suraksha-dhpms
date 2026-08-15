@@ -17,4 +17,10 @@ describe("Home", () => {
     expect(screen.getByRole("link", { name: /open the scanner/i })).toHaveAttribute("href", "/reception/scanner");
     expect(screen.getByRole("link", { name: /open doctor view/i })).toHaveAttribute("href", "/doctor/dashboard");
   });
+
+  it("has a header Login link, since patients and staff both need to sign in", () => {
+    render(<Home />);
+    const loginLinks = screen.getAllByRole("link", { name: /^log in$/i });
+    expect(loginLinks.some((link) => link.getAttribute("href") === "/login")).toBe(true);
+  });
 });
