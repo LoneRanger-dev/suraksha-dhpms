@@ -80,3 +80,23 @@ All 6 phases complete. Backend: 42/42 pytest passing. Frontend: 20/20 Vitest pas
 `next build` clean. Both dev servers verified live and manually exercised through the
 browser (registration → QR card → scan → vitals/prescription → billing chain all
 implemented and unit/integration tested).
+
+## Deployment
+
+- **Frontend:** Vercel project `suraksha-dhpms`, Root Directory `frontend`, live at
+  `suraksha-dhpms.vercel.app`.
+- **Backend:** deployed as Vercel Python serverless functions — entrypoint
+  `backend/api/index.py` (imports the FastAPI `app` from `app.main`),
+  `backend/vercel.json` routes all paths to it. Needs its own separate Vercel
+  project (Root Directory `backend`, Framework Preset `Other`) since Vercel
+  projects are one-per-app.
+  - `app/core/database.py` switches to `NullPool` + `statement_cache_size=0`
+    when `VERCEL` is set in the environment (Vercel sets this automatically) —
+    required for serverless connection pooling against a pooled Postgres
+    connection string (PgBouncer transaction mode).
+  - `app/core/config.py` normalizes `postgres://`/`postgresql://` connection
+    strings to the `asyncpg` driver automatically, so a Neon/Vercel Postgres
+    connection string can be pasted in as-is.
+  - Alembic migrations are **not** run automatically at cold start — run
+    `alembic upgrade head` manually against the production database URL
+    before first use.

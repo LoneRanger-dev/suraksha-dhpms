@@ -11,6 +11,9 @@ frontend/.next/
 frontend/out/
 frontend/.env*.local
 
+# Vercel
+.vercel
+
 # OS / editor
 .DS_Store
 Thumbs.db
