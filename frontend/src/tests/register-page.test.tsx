@@ -36,6 +36,8 @@ describe("RegisterPage", () => {
     expect(screen.getByRole("heading", { name: /register/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/date of birth/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^phone number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/emergency contact phone/i)).toBeInTheDocument();
     await screen.findByRole("option", { name: /free/i });
   });
@@ -47,10 +49,12 @@ describe("RegisterPage", () => {
 
     await user.type(screen.getByLabelText(/full name/i), "Test Patient");
     await user.type(screen.getByLabelText(/date of birth/i), "1990-01-01");
+    await user.type(screen.getByLabelText(/^phone number/i), "+919876500000");
+    await user.type(screen.getByLabelText(/^password/i), "Patient@123");
     await user.type(screen.getByLabelText(/emergency contact phone/i), "123");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
-    expect(await screen.findByText(/valid.*mobile number/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/valid.*mobile number/i)).length).toBeGreaterThan(0);
   });
 
   it("submits valid data and shows the generated patient ID", async () => {
@@ -60,6 +64,8 @@ describe("RegisterPage", () => {
 
     await user.type(screen.getByLabelText(/full name/i), "Test Patient");
     await user.type(screen.getByLabelText(/date of birth/i), "1990-01-01");
+    await user.type(screen.getByLabelText(/^phone number/i), "+919876500000");
+    await user.type(screen.getByLabelText(/^password/i), "Patient@123");
     await user.type(screen.getByLabelText(/emergency contact phone/i), "+919876543210");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
@@ -83,6 +89,8 @@ describe("RegisterPage", () => {
 
     await user.type(screen.getByLabelText(/full name/i), "Test Patient");
     await user.type(screen.getByLabelText(/date of birth/i), "1990-01-01");
+    await user.type(screen.getByLabelText(/^phone number/i), "+919876500000");
+    await user.type(screen.getByLabelText(/^password/i), "Patient@123");
     await user.type(screen.getByLabelText(/emergency contact phone/i), "+919876543210");
     await user.click(screen.getByRole("button", { name: /register/i }));
     await screen.findByText(/SUR-2026-000001/);

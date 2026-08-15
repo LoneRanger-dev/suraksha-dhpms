@@ -25,6 +25,7 @@ const ROLE_DESTINATIONS: Record<string, string> = {
   SUPER_ADMIN: "/reception/scanner",
   NURSE: "/reception/scanner",
   DOCTOR: "/doctor/dashboard",
+  PATIENT: "/patient/dashboard",
 };
 
 export default function LoginPage() {
@@ -77,8 +78,8 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-foreground">Staff Login</h1>
-        <p className="text-sm text-muted-foreground">Reception, nursing, and doctor access.</p>
+        <h1 className="text-2xl font-semibold text-foreground">Log In</h1>
+        <p className="text-sm text-muted-foreground">Patients, reception, nursing, and doctor access.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>

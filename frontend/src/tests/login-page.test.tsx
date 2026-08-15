@@ -108,4 +108,36 @@ describe("LoginPage", () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/doctor/dashboard"));
     expect(useAuthStore.getState().doctorFullName).toBe("Dr. Test");
   });
+
+  it("redirects a patient to their own dashboard", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/auth/login")) {
+          return Promise.resolve({ ok: true, json: async () => ({ access_token: "pattok", role: "PATIENT" }) });
+        }
+        if (url.includes("/auth/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              user_id: "u3",
+              phone: "+919876500099",
+              role: "PATIENT",
+              doctor_id: null,
+              doctor_full_name: null,
+            }),
+          });
+        }
+        return Promise.reject(new Error(`unexpected url ${url}`));
+      })
+    );
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText(/phone number/i), "+919876500099");
+    await user.type(screen.getByLabelText(/password/i), "Passw0rd!");
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/patient/dashboard"));
+  });
 });

@@ -20,11 +20,12 @@ class PatientCreate(BaseModel):
     full_name: str = Field(min_length=1, max_length=150)
     dob: date
     gender: GenderType
+    phone: str = Field(pattern=r"^\+?[1-9]\d{9,14}$")
+    password: str = Field(min_length=6, max_length=100)
     emergency_contact_phone: str = Field(pattern=r"^\+?[1-9]\d{9,14}$")
     plan_id: uuid.UUID
     blood_group: str | None = Field(default=None, max_length=5)
     abha_id: str | None = None
-    phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{9,14}$")
     address: str | None = None
     emergency_contact_name: str | None = None
     known_allergies: str = "None"
@@ -44,6 +45,20 @@ class PatientRead(BaseModel):
     emergency_contact_phone: str
     created_at: datetime
     qr_card: QRCardRead
+
+
+class PatientMeRead(BaseModel):
+    patient_id: uuid.UUID
+    patient_display_id: str
+    full_name: str
+    dob: date
+    gender: GenderType
+    blood_group: str | None
+    known_allergies: str
+    emergency_contact_phone: str
+    qr_card: QRCardRead
+    membership_tier: MembershipTier
+    membership_plan_name: str
 
 
 class MembershipPlanRead(BaseModel):

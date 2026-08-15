@@ -13,6 +13,8 @@ const registrationSchema = z.object({
   full_name: z.string().min(1, "Full name is required."),
   dob: z.string().min(1, "Date of birth is required."),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
+  phone: z.string().regex(/^\+?[1-9]\d{9,14}$/, "Enter a valid 10-digit mobile number."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
   emergency_contact_phone: z
     .string()
     .regex(/^\+?[1-9]\d{9,14}$/, "Enter a valid 10-digit mobile number."),
@@ -152,6 +154,19 @@ export default function RegisterPage() {
             <option value="FEMALE">Female</option>
             <option value="OTHER">Other</option>
           </select>
+        </Field>
+
+        <Field label="Phone Number (used to log in)" htmlFor="phone" error={errors.phone?.message}>
+          <input
+            id="phone"
+            placeholder="e.g., +91 98765 43210"
+            className={inputClass}
+            {...register("phone")}
+          />
+        </Field>
+
+        <Field label="Password" htmlFor="password" error={errors.password?.message}>
+          <input id="password" type="password" className={inputClass} {...register("password")} />
         </Field>
 
         <Field label="Blood Group" htmlFor="blood_group" error={errors.blood_group?.message}>

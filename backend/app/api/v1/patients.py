@@ -4,9 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.models import MembershipPlan, Patient, QRCard
-from app.schemas.patient import PatientCreate, PatientRead, QRCardRead
+from app.core.security import hash_password
+from app.models import MembershipPlan, Patient, QRCard, User
+from app.models.enums import UserRole
+from app.schemas.patient import PatientCreate, PatientMeRead, PatientRead, QRCardRead
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
 
@@ -39,8 +42,17 @@ def _to_patient_read(patient: Patient, card: QRCard) -> PatientRead:
 async def register_patient(payload: PatientCreate, db: AsyncSession = Depends(get_db)) -> PatientRead:
     plan = await _get_plan_or_404(db, payload.plan_id)
 
+    existing_user = (await db.execute(select(User).where(User.phone == payload.phone))).scalar_one_or_none()
+    if existing_user is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already registered")
+
+    user = User(phone=payload.phone, password_hash=hash_password(payload.password), role=UserRole.PATIENT)
+    db.add(user)
+    await db.flush()
+
     display_id = await generate_patient_display_id(db)
     patient = Patient(
+        user_id=user.user_id,
         patient_display_id=display_id,
         full_name=payload.full_name,
         dob=payload.dob,
@@ -62,6 +74,42 @@ async def register_patient(payload: PatientCreate, db: AsyncSession = Depends(ge
     await db.refresh(card)
 
     return _to_patient_read(patient, card)
+
+
+@router.get("/me", response_model=PatientMeRead)
+async def get_my_patient_record(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PatientMeRead:
+    result = await db.execute(select(Patient).where(Patient.user_id == current_user.user_id))
+    patient = result.scalar_one_or_none()
+    if patient is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No patient profile for this account")
+
+    card_result = await db.execute(
+        select(QRCard)
+        .where(QRCard.patient_id == patient.patient_id)
+        .order_by(QRCard.issued_date.desc(), QRCard.created_at.desc())
+    )
+    card = card_result.scalars().first()
+    if card is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient has no QR card")
+
+    plan = await db.get(MembershipPlan, card.plan_id)
+
+    return PatientMeRead(
+        patient_id=patient.patient_id,
+        patient_display_id=patient.patient_display_id,
+        full_name=patient.full_name,
+        dob=patient.dob,
+        gender=patient.gender,
+        blood_group=patient.blood_group,
+        known_allergies=patient.known_allergies,
+        emergency_contact_phone=patient.emergency_contact_phone,
+        qr_card=QRCardRead.model_validate(card),
+        membership_tier=plan.tier,
+        membership_plan_name=plan.name,
+    )
 
 
 @router.get("/{patient_id}", response_model=PatientRead)

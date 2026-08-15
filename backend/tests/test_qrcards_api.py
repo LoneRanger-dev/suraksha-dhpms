@@ -16,6 +16,8 @@ async def test_download_qr_card_pdf(client, async_session):
             "full_name": "Card Download Patient",
             "dob": "1990-01-01",
             "gender": "MALE",
+            "phone": "+919876500008",
+            "password": "Patient@123",
             "emergency_contact_phone": "+919876500009",
             "plan_id": str(plan.plan_id),
         },
