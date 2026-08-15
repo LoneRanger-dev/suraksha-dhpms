@@ -101,3 +101,42 @@ async def test_check_in_rejects_patient_role(client, async_session):
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_doctor_sees_only_their_own_queue_by_default(client, async_session):
+    patient, doctor = await _setup_patient_and_doctor(async_session)
+
+    receptionist = User(
+        user_id="00000000-0000-0000-0000-000000000001",
+        phone="+919000000013",
+        password_hash=hash_password("x"),
+        role=UserRole.RECEPTIONIST,
+    )
+    async_session.add(receptionist)
+    await async_session.commit()
+
+    checkin = await client.post(
+        "/api/v1/appointments/queue",
+        json={"patient_id": str(patient.patient_id), "doctor_id": str(doctor.doctor_id)},
+        headers=_staff_headers(),
+    )
+    assert checkin.status_code == 201
+
+    doctor_token = create_access_token(subject=str(doctor.user_id), role="DOCTOR")
+    response = await client.get(
+        "/api/v1/appointments", headers={"Authorization": f"Bearer {doctor_token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["patient_display_id"] == "SUR-2026-000800"
+    assert body[0]["patient_full_name"] == "Checkin Patient"
+    assert body[0]["doctor_full_name"] == "Dr. Check-in"
+
+
+@pytest.mark.asyncio
+async def test_appointments_list_requires_staff_auth(client):
+    response = await client.get("/api/v1/appointments")
+    assert response.status_code == 401

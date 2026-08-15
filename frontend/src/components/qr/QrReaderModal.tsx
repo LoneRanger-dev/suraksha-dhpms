@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
 
 interface ScanResult {
+  patient_id?: string;
   full_name: string;
   blood_group: string | null;
   allergies: string;
@@ -14,9 +15,17 @@ interface ScanResult {
   card_status?: string;
 }
 
+export interface DoctorOption {
+  doctor_id: string;
+  full_name: string;
+  specialization: string;
+  department_name: string;
+}
+
 interface QrReaderModalProps {
   onClose: () => void;
   authToken?: string | null;
+  doctors?: DoctorOption[];
 }
 
 const SCAN_URL_PATTERN = /\/scan\/([0-9a-fA-F-]{36})/;
@@ -29,11 +38,15 @@ function extractToken(raw: string): string | null {
   return UUID_PATTERN.test(trimmed) ? trimmed : null;
 }
 
-export function QrReaderModal({ onClose, authToken }: QrReaderModalProps) {
+export function QrReaderModal({ onClose, authToken, doctors }: QrReaderModalProps) {
   const [cameraError, setCameraError] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [checkInToken, setCheckInToken] = useState<string | null>(null);
+  const [checkInError, setCheckInError] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
   const scannerRef = useRef<{ stop: () => Promise<void> } | null>(null);
 
   useEffect(() => {
@@ -84,6 +97,10 @@ export function QrReaderModal({ onClose, authToken }: QrReaderModalProps) {
   async function lookupToken(token: string) {
     if (!token) return;
     setFetchError(null);
+    setResult(null);
+    setCheckInToken(null);
+    setCheckInError(null);
+    setSelectedDoctorId("");
     try {
       const headers: Record<string, string> = {};
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -93,6 +110,28 @@ export function QrReaderModal({ onClose, authToken }: QrReaderModalProps) {
       setResult(data);
     } catch {
       setFetchError("Could not resolve this card. Try the manual token instead.");
+    }
+  }
+
+  async function handleGenerateQueueToken() {
+    if (!result?.patient_id || !selectedDoctorId) return;
+    setCheckInError(null);
+    setCheckingIn(true);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      const response = await fetch(`${API_BASE_URL}/api/v1/appointments/queue`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ patient_id: result.patient_id, doctor_id: selectedDoctorId }),
+      });
+      if (!response.ok) throw new Error("Check-in failed");
+      const data = await response.json();
+      setCheckInToken(data.token_number);
+    } catch {
+      setCheckInError("Could not check the patient in. Please try again.");
+    } finally {
+      setCheckingIn(false);
     }
   }
 
@@ -155,13 +194,45 @@ export function QrReaderModal({ onClose, authToken }: QrReaderModalProps) {
             </p>
           )}
 
+          {doctors && doctors.length > 0 && !checkInToken && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="queue-doctor" className="text-xs font-medium text-foreground">
+                Route to Doctor
+              </label>
+              <select
+                id="queue-doctor"
+                value={selectedDoctorId}
+                onChange={(event) => setSelectedDoctorId(event.target.value)}
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+              >
+                <option value="">Select a doctor…</option>
+                {doctors.map((doctor) => (
+                  <option key={doctor.doctor_id} value={doctor.doctor_id}>
+                    {doctor.full_name} — {doctor.specialization}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {checkInToken && (
+            <p className="rounded-md bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+              Queue token issued: {checkInToken}
+            </p>
+          )}
+          {checkInError && <p className="text-xs text-destructive">{checkInError}</p>}
+
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-            >
-              Generate Queue Token
-            </button>
+            {result.patient_id && doctors && doctors.length > 0 && (
+              <button
+                type="button"
+                onClick={handleGenerateQueueToken}
+                disabled={!selectedDoctorId || checkingIn || Boolean(checkInToken)}
+                className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {checkInToken ? "Checked In" : "Generate Queue Token"}
+              </button>
+            )}
             <button
               type="button"
               className="rounded-md border border-border px-3 py-2 text-xs font-semibold text-foreground"

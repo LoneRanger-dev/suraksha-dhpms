@@ -22,3 +22,16 @@ class AppointmentRead(BaseModel):
     time_slot: str
     token_number: str
     status: AppointmentStatus
+
+
+class AppointmentQueueItem(BaseModel):
+    appointment_id: uuid.UUID
+    patient_id: uuid.UUID
+    patient_display_id: str
+    patient_full_name: str
+    doctor_id: uuid.UUID
+    doctor_full_name: str
+    token_number: str
+    time_slot: str
+    appointment_date: date
+    status: AppointmentStatus

@@ -1,42 +1,54 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import type { DoctorOption } from "@/components/qr/QrReaderModal";
+import { QrReaderModal } from "@/components/qr/QrReaderModal";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { API_BASE_URL } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth-store";
+import { useRequireAuth } from "@/lib/use-require-auth";
+
+const STAFF_ROLES = ["RECEPTIONIST", "ADMIN", "SUPER_ADMIN", "NURSE"];
 
 export default function ReceptionScannerPage() {
+  const { token } = useRequireAuth(STAFF_ROLES);
+  const phone = useAuthStore((state) => state.phone);
+  const role = useAuthStore((state) => state.role);
+  const logout = useAuthStore((state) => state.logout);
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/doctors`)
+      .then((res) => res.json())
+      .then((data) => setDoctors(Array.isArray(data) ? data : []))
+      .catch(() => setDoctors([]));
+  }, []);
+
+  if (!token) {
+    return null;
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Fast-Scan Check-In</h1>
-        <Badge variant="outline" className="border-warning text-warning">
-          Camera not started
-        </Badge>
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Fast-Scan Check-In</h1>
+          <p className="text-sm text-muted-foreground">
+            {phone} · {role}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="border-success text-success">
+            Signed in
+          </Badge>
+          <button type="button" onClick={logout} className="text-sm text-muted-foreground underline">
+            Log out
+          </button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Scan Patient QR Card</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-border bg-muted text-sm text-muted-foreground">
-            Camera preview will appear here
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label htmlFor="manual-token" className="text-sm font-medium text-foreground">
-              Patient ID or Token
-            </label>
-            <input
-              id="manual-token"
-              name="manual-token"
-              type="text"
-              placeholder="e.g. SUR-2026-000847"
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use this if the camera is unavailable or the card can&apos;t be scanned.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <QrReaderModal onClose={() => {}} authToken={token} doctors={doctors} />
     </main>
   );
 }
