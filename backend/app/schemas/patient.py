@@ -1,0 +1,54 @@
+import uuid
+from datetime import date, datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.enums import CardStatus, GenderType, MembershipTier
+
+
+class QRCardRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: uuid.UUID
+    token_uuid: uuid.UUID
+    status: CardStatus
+    issued_date: date
+    expiry_date: date
+
+
+class PatientCreate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=150)
+    dob: date
+    gender: GenderType
+    emergency_contact_phone: str = Field(pattern=r"^\+?[1-9]\d{9,14}$")
+    plan_id: uuid.UUID
+    blood_group: str | None = Field(default=None, max_length=5)
+    abha_id: str | None = None
+    phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{9,14}$")
+    address: str | None = None
+    emergency_contact_name: str | None = None
+    known_allergies: str = "None"
+    existing_conditions: str | None = None
+
+
+class PatientRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    patient_id: uuid.UUID
+    patient_display_id: str
+    full_name: str
+    dob: date
+    gender: GenderType
+    blood_group: str | None
+    known_allergies: str
+    emergency_contact_phone: str
+    created_at: datetime
+    qr_card: QRCardRead
+
+
+class MembershipPlanRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    plan_id: uuid.UUID
+    name: str
+    tier: MembershipTier
