@@ -21,14 +21,30 @@ STAFF_ROLES = {
 }
 
 
-@router.get("/{token_uuid}")
+@router.get("/{token}")
 async def resolve_scan(
-    token_uuid: uuid.UUID,
+    token: str,
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> PublicScanView | StaffScanView:
-    result = await db.execute(select(QRCard).where(QRCard.token_uuid == token_uuid))
-    card = result.scalar_one_or_none()
+    card: QRCard | None = None
+    try:
+        token_uuid = uuid.UUID(token)
+    except ValueError:
+        token_uuid = None
+    if token_uuid is not None:
+        result = await db.execute(select(QRCard).where(QRCard.token_uuid == token_uuid))
+        card = result.scalar_one_or_none()
+
+    if card is None:
+        # Fall back to the human-readable ID printed on the confirmation
+        # screen / wristband, since staff type that far more often than the
+        # raw QR token.
+        result = await db.execute(
+            select(QRCard).join(Patient).where(Patient.patient_display_id == token)
+        )
+        card = result.scalar_one_or_none()
+
     if card is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid or expired card token")
 

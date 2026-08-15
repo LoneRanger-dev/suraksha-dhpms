@@ -75,3 +75,22 @@ async def test_scan_as_receptionist_returns_full_dossier(client, async_session):
 async def test_scan_unknown_token_returns_404(client):
     response = await client.get(f"/api/v1/scan/{uuid.uuid4()}")
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_scan_by_printed_patient_display_id_resolves_same_card(client, async_session):
+    """A receptionist typing the human-readable ID from the confirmation
+    screen/wristband must resolve the same card as scanning the QR token."""
+    _patient, card = await _register_patient_with_card(async_session)
+
+    response = await client.get("/api/v1/scan/SUR-2026-000500")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["full_name"] == "Scan Test Patient"
+
+
+@pytest.mark.asyncio
+async def test_scan_unknown_patient_display_id_returns_404(client):
+    response = await client.get("/api/v1/scan/SUR-2026-999999")
+    assert response.status_code == 404
