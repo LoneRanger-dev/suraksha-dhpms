@@ -79,6 +79,34 @@ describe("QrReaderModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("clears the looked-up patient and input when Close is clicked, ready for the next patient", async () => {
+    startMock.mockRejectedValue(new Error("camera denied"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          full_name: "Manvith M N",
+          blood_group: "B+",
+          allergies: "None",
+        }),
+      })
+    );
+
+    const user = userEvent.setup();
+    render(<QrReaderModal onClose={() => {}} />);
+
+    const input = await screen.findByLabelText(/patient id or token/i);
+    await user.type(input, "11111111-1111-1111-1111-111111111111");
+    await user.click(screen.getByRole("button", { name: /look up/i }));
+    await screen.findByText("Manvith M N");
+
+    await user.click(screen.getByRole("button", { name: /^close$/i }));
+
+    expect(screen.queryByText("Manvith M N")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/patient id or token/i)).toHaveValue("");
+  });
+
   it("checks the patient into a selected doctor's queue and shows the issued token", async () => {
     startMock.mockRejectedValue(new Error("camera denied"));
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {

@@ -147,6 +147,16 @@ export function QrReaderModal({ onClose, authToken, doctors, staffRole }: QrRead
     }
   }
 
+  function handleClose() {
+    setResult(null);
+    setManualInput("");
+    setFetchError(null);
+    setCheckInToken(null);
+    setCheckInError(null);
+    setSelectedDoctorId("");
+    onClose();
+  }
+
   const hasAllergies = Boolean(result?.allergies && result.allergies.trim().toUpperCase() !== "NONE");
 
   return (
@@ -245,12 +255,6 @@ export function QrReaderModal({ onClose, authToken, doctors, staffRole }: QrRead
                 {checkInToken ? "Checked In" : "Generate Queue Token"}
               </button>
             )}
-            <button
-              type="button"
-              className="rounded-md border border-border px-3 py-2 text-xs font-semibold text-foreground"
-            >
-              Direct to Doctor Consultation
-            </button>
             {result.patient_id && canBill && (
               <button
                 type="button"
@@ -268,7 +272,7 @@ export function QrReaderModal({ onClose, authToken, doctors, staffRole }: QrRead
         </div>
       )}
 
-      <button type="button" onClick={onClose} className="self-end text-sm text-muted-foreground underline">
+      <button type="button" onClick={handleClose} className="self-end text-sm text-muted-foreground underline">
         Close
       </button>
     </div>
