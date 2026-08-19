@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import CardStatus, GenderType, MembershipTier
+from app.models.enums import CardStatus, GenderType, MembershipTier, RelationshipType
 
 
 class QRCardRead(BaseModel):
@@ -59,6 +59,29 @@ class PatientMeRead(BaseModel):
     qr_card: QRCardRead
     membership_tier: MembershipTier
     membership_plan_name: str
+
+
+class FamilyMemberCreate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=150)
+    dob: date
+    gender: GenderType
+    relationship_to_primary: RelationshipType
+    blood_group: str | None = Field(default=None, max_length=5)
+    known_allergies: str = "None"
+    emergency_contact_phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{9,14}$")
+
+
+class FamilyMemberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    patient_id: uuid.UUID
+    patient_display_id: str
+    full_name: str
+    dob: date
+    gender: GenderType
+    relationship_to_primary: str
+    blood_group: str | None
+    known_allergies: str
 
 
 class MembershipPlanRead(BaseModel):

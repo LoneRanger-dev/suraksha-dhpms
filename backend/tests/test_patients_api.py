@@ -131,3 +131,66 @@ async def test_patients_me_returns_own_dashboard_data(client, async_session):
 async def test_patients_me_requires_authentication(client):
     response = await client.get("/api/v1/patients/me")
     assert response.status_code == 401
+
+
+async def _register_and_login(client, plan_id, phone, full_name):
+    await client.post("/api/v1/patients", json=_payload(plan_id, phone=phone, full_name=full_name))
+    login_resp = await client.post("/api/v1/auth/login", json={"phone": phone, "password": "Patient@123"})
+    return login_resp.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_add_family_member_inherits_primary_account_membership(client, async_session):
+    plan = await _create_plan(async_session, name="Family Gold", tier=MembershipTier.GOLD)
+    token = await _register_and_login(client, plan.plan_id, "+919876500020", "Primary Patient")
+
+    response = await client.post(
+        "/api/v1/patients/me/family",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "full_name": "Dependent Child",
+            "dob": "2015-06-10",
+            "gender": "MALE",
+            "relationship_to_primary": "CHILD",
+            "blood_group": "O+",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["full_name"] == "Dependent Child"
+    assert body["relationship_to_primary"] == "CHILD"
+    assert body["patient_display_id"].startswith("SUR-")
+
+
+@pytest.mark.asyncio
+async def test_list_family_members_returns_only_own_dependents(client, async_session):
+    plan = await _create_plan(async_session, name="Family Gold", tier=MembershipTier.GOLD)
+    token_a = await _register_and_login(client, plan.plan_id, "+919876500021", "Primary A")
+    token_b = await _register_and_login(client, plan.plan_id, "+919876500022", "Primary B")
+
+    await client.post(
+        "/api/v1/patients/me/family",
+        headers={"Authorization": f"Bearer {token_a}"},
+        json={"full_name": "A's Spouse", "dob": "1992-01-01", "gender": "FEMALE", "relationship_to_primary": "SPOUSE"},
+    )
+    await client.post(
+        "/api/v1/patients/me/family",
+        headers={"Authorization": f"Bearer {token_b}"},
+        json={"full_name": "B's Parent", "dob": "1960-01-01", "gender": "MALE", "relationship_to_primary": "PARENT"},
+    )
+
+    response = await client.get("/api/v1/patients/me/family", headers={"Authorization": f"Bearer {token_a}"})
+
+    assert response.status_code == 200
+    names = [member["full_name"] for member in response.json()]
+    assert names == ["A's Spouse"]
+
+
+@pytest.mark.asyncio
+async def test_add_family_member_requires_authentication(client):
+    response = await client.post(
+        "/api/v1/patients/me/family",
+        json={"full_name": "Nobody", "dob": "2000-01-01", "gender": "MALE", "relationship_to_primary": "OTHER"},
+    )
+    assert response.status_code == 401

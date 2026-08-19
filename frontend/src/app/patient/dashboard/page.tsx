@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { PatientHealthCard } from "@/components/cards/PatientHealthCard";
@@ -73,6 +74,12 @@ export default function PatientDashboardPage() {
               {patient.membership_tier} Member · Card ID {patient.patient_display_id}
             </p>
           </div>
+          <Link
+            href="/patient/family"
+            className="w-fit rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground"
+          >
+            Family Members
+          </Link>
         </div>
       )}
     </main>

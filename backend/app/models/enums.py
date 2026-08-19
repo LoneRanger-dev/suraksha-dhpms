@@ -45,3 +45,10 @@ class InvoiceStatus(str, enum.Enum):
     PARTIALLY_PAID = "PARTIALLY_PAID"
     PAID = "PAID"
     REFUNDED = "REFUNDED"
+
+
+class RelationshipType(str, enum.Enum):
+    SPOUSE = "SPOUSE"
+    CHILD = "CHILD"
+    PARENT = "PARENT"
+    OTHER = "OTHER"

@@ -61,5 +61,8 @@ describe("PatientDashboardPage", () => {
     expect(screen.getAllByText(/GOLD Member/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Family Gold/i)).toBeInTheDocument();
     expect(screen.getByText(/ALLERGIES: Penicillin/i)).toBeInTheDocument();
+
+    const familyLink = screen.getByRole("link", { name: /family members/i });
+    expect(familyLink.getAttribute("href")).toBe("/patient/family");
   });
 });

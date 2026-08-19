@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import MembershipPlan, Patient, QRCard, User
 from app.models.enums import UserRole
-from app.schemas.patient import PatientCreate, PatientMeRead, PatientRead, QRCardRead
+from app.schemas.patient import FamilyMemberCreate, FamilyMemberRead, PatientCreate, PatientMeRead, PatientRead, QRCardRead
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
 
@@ -21,6 +21,14 @@ async def _get_plan_or_404(db: AsyncSession, plan_id: uuid.UUID) -> MembershipPl
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership plan not found")
     return plan
+
+
+async def _get_own_patient_or_404(db: AsyncSession, current_user: User) -> Patient:
+    result = await db.execute(select(Patient).where(Patient.user_id == current_user.user_id))
+    patient = result.scalar_one_or_none()
+    if patient is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No patient profile for this account")
+    return patient
 
 
 def _to_patient_read(patient: Patient, card: QRCard) -> PatientRead:
@@ -81,10 +89,7 @@ async def get_my_patient_record(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PatientMeRead:
-    result = await db.execute(select(Patient).where(Patient.user_id == current_user.user_id))
-    patient = result.scalar_one_or_none()
-    if patient is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No patient profile for this account")
+    patient = await _get_own_patient_or_404(db, current_user)
 
     card_result = await db.execute(
         select(QRCard)
@@ -110,6 +115,60 @@ async def get_my_patient_record(
         membership_tier=plan.tier,
         membership_plan_name=plan.name,
     )
+
+
+@router.post("/me/family", response_model=FamilyMemberRead, status_code=status.HTTP_201_CREATED)
+async def add_family_member(
+    payload: FamilyMemberCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FamilyMemberRead:
+    primary = await _get_own_patient_or_404(db, current_user)
+
+    card_result = await db.execute(
+        select(QRCard)
+        .where(QRCard.patient_id == primary.patient_id)
+        .order_by(QRCard.issued_date.desc(), QRCard.created_at.desc())
+    )
+    primary_card = card_result.scalars().first()
+    if primary_card is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Primary account has no active membership")
+    plan = await db.get(MembershipPlan, primary_card.plan_id)
+
+    display_id = await generate_patient_display_id(db)
+    dependent = Patient(
+        primary_account_id=primary.patient_id,
+        relationship_to_primary=payload.relationship_to_primary.value,
+        patient_display_id=display_id,
+        full_name=payload.full_name,
+        dob=payload.dob,
+        gender=payload.gender,
+        blood_group=payload.blood_group,
+        known_allergies=payload.known_allergies,
+        emergency_contact_phone=payload.emergency_contact_phone or primary.emergency_contact_phone,
+    )
+    db.add(dependent)
+    await db.flush()
+
+    await issue_qr_card(db, dependent, plan)
+    await db.commit()
+    await db.refresh(dependent)
+
+    return FamilyMemberRead.model_validate(dependent)
+
+
+@router.get("/me/family", response_model=list[FamilyMemberRead])
+async def list_family_members(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[FamilyMemberRead]:
+    primary = await _get_own_patient_or_404(db, current_user)
+
+    result = await db.execute(
+        select(Patient).where(Patient.primary_account_id == primary.patient_id).order_by(Patient.created_at)
+    )
+    dependents = result.scalars().all()
+    return [FamilyMemberRead.model_validate(dependent) for dependent in dependents]
 
 
 @router.get("/{patient_id}", response_model=PatientRead)
