@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models import Appointment, Department, Doctor, Patient, User
 from app.models.enums import AppointmentStatus, UserRole
 from app.schemas.appointment import AppointmentBookRequest, AppointmentQueueItem, AppointmentRead, QueueCheckInRequest
+from app.services.notification_service import notify
 from app.services.queue_service import generate_queue_token
 
 router = APIRouter(prefix="/api/v1/appointments", tags=["appointments"])
@@ -52,6 +53,12 @@ async def check_in_to_queue(
         reason_for_visit=payload.reason_for_visit,
     )
     db.add(appointment)
+    await notify(
+        db,
+        doctor.user_id,
+        "New check-in",
+        f"{patient.full_name} ({patient.patient_display_id}) has checked in, token {token_number}.",
+    )
     await db.commit()
     await db.refresh(appointment)
 
@@ -109,6 +116,19 @@ async def book_appointment(
         reason_for_visit=payload.reason_for_visit,
     )
     db.add(appointment)
+    await notify(
+        db,
+        doctor.user_id,
+        "New appointment",
+        f"{patient.full_name} booked a {payload.time_slot} appointment on {payload.appointment_date.isoformat()}.",
+    )
+    await notify(
+        db,
+        patient.user_id,
+        "Appointment confirmed",
+        f"Your appointment with {doctor.full_name} is confirmed for "
+        f"{payload.appointment_date.isoformat()} at {payload.time_slot}. Token: {token_number}.",
+    )
     await db.commit()
     await db.refresh(appointment)
 

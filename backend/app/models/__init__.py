@@ -5,6 +5,7 @@ from app.models.department import Department
 from app.models.doctor import Doctor
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.membership import MembershipPlan
+from app.models.notification import Notification
 from app.models.patient import Patient
 from app.models.prescription import Prescription, PrescriptionItem
 from app.models.qr_card import QRCard
@@ -26,4 +27,5 @@ __all__ = [
     "Invoice",
     "InvoiceItem",
     "AuditLog",
+    "Notification",
 ]

@@ -64,5 +64,8 @@ describe("PatientDashboardPage", () => {
 
     const familyLink = screen.getByRole("link", { name: /family members/i });
     expect(familyLink.getAttribute("href")).toBe("/patient/family");
+
+    const notifLink = screen.getByRole("link", { name: /notifications/i });
+    expect(notifLink.getAttribute("href")).toBe("/notifications");
   });
 });

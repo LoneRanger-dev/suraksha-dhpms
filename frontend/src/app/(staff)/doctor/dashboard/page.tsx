@@ -46,6 +46,9 @@ export default function DoctorDashboardPage() {
         <h1 className="text-2xl font-semibold text-foreground">Today&apos;s Appointments</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{doctorFullName ?? "Doctor"}</span>
+          <Link href="/notifications" className="text-sm text-muted-foreground underline">
+            Notifications
+          </Link>
           <button type="button" onClick={logout} className="text-sm text-muted-foreground underline">
             Log out
           </button>

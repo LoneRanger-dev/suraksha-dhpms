@@ -34,6 +34,9 @@ describe("DoctorDashboardPage", () => {
 
     expect(screen.getByRole("heading", { name: /today's appointments/i })).toBeInTheDocument();
     expect(await screen.findByText(/no appointments scheduled/i)).toBeInTheDocument();
+
+    const notifLink = screen.getByRole("link", { name: /notifications/i });
+    expect(notifLink.getAttribute("href")).toBe("/notifications");
   });
 
   it("lists a checked-in patient and links to their consultation", async () => {

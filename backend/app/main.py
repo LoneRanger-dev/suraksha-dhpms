@@ -9,6 +9,7 @@ from app.api.v1 import (
     departments,
     doctors,
     memberships,
+    notifications,
     patients,
     qrcards,
     scan,
@@ -35,6 +36,7 @@ app.include_router(consultations.router)
 app.include_router(billing.router)
 app.include_router(doctors.router)
 app.include_router(departments.router)
+app.include_router(notifications.router)
 
 
 @app.get("/health")

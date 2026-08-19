@@ -46,9 +46,14 @@ export default function PatientDashboardPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">My Health Card</h1>
-        <button type="button" onClick={logout} className="text-sm text-muted-foreground underline">
-          Log out
-        </button>
+        <div className="flex items-center gap-3">
+          <Link href="/notifications" className="text-sm text-muted-foreground underline">
+            Notifications
+          </Link>
+          <button type="button" onClick={logout} className="text-sm text-muted-foreground underline">
+            Log out
+          </button>
+        </div>
       </div>
 
       {loading ? (
