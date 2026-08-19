@@ -87,6 +87,12 @@ export default function PatientDashboardPage() {
             >
               My Appointments
             </Link>
+            <Link
+              href="/patient/records"
+              className="w-fit rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground"
+            >
+              Medical Records & Bills
+            </Link>
           </div>
         </div>
       )}

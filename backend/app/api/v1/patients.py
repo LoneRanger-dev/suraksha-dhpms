@@ -8,10 +8,13 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.models import Appointment, MembershipPlan, Patient, QRCard, User
+from app.models import Appointment, Invoice, MembershipPlan, Patient, Prescription, QRCard, User, Visit
 from app.models.enums import UserRole
 from app.schemas.appointment import AppointmentQueueItem
+from app.schemas.billing import InvoiceRead
 from app.schemas.patient import FamilyMemberCreate, FamilyMemberRead, PatientCreate, PatientMeRead, PatientRead, QRCardRead
+from app.schemas.prescription import PrescriptionRead
+from app.schemas.visit import VisitRead
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
 
@@ -208,6 +211,56 @@ async def list_my_appointments(
         )
         for appt in appointments
     ]
+
+
+async def _own_and_family_patient_ids(db: AsyncSession, current_user: User) -> list[uuid.UUID]:
+    primary = await _get_own_patient_or_404(db, current_user)
+    dependents_result = await db.execute(
+        select(Patient.patient_id).where(Patient.primary_account_id == primary.patient_id)
+    )
+    return [primary.patient_id] + [row[0] for row in dependents_result.all()]
+
+
+@router.get("/me/visits", response_model=list[VisitRead])
+async def list_my_visits(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[VisitRead]:
+    patient_ids = await _own_and_family_patient_ids(db, current_user)
+    result = await db.execute(
+        select(Visit).where(Visit.patient_id.in_(patient_ids)).order_by(Visit.visit_date.desc())
+    )
+    return [VisitRead.model_validate(visit) for visit in result.scalars().all()]
+
+
+@router.get("/me/prescriptions", response_model=list[PrescriptionRead])
+async def list_my_prescriptions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[PrescriptionRead]:
+    patient_ids = await _own_and_family_patient_ids(db, current_user)
+    result = await db.execute(
+        select(Prescription)
+        .options(selectinload(Prescription.items))
+        .where(Prescription.patient_id.in_(patient_ids))
+        .order_by(Prescription.created_at.desc())
+    )
+    return [PrescriptionRead.model_validate(rx) for rx in result.scalars().all()]
+
+
+@router.get("/me/invoices", response_model=list[InvoiceRead])
+async def list_my_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[InvoiceRead]:
+    patient_ids = await _own_and_family_patient_ids(db, current_user)
+    result = await db.execute(
+        select(Invoice)
+        .options(selectinload(Invoice.items))
+        .where(Invoice.patient_id.in_(patient_ids))
+        .order_by(Invoice.created_at.desc())
+    )
+    return [InvoiceRead.model_validate(invoice) for invoice in result.scalars().all()]
 
 
 @router.get("/{patient_id}", response_model=PatientRead)

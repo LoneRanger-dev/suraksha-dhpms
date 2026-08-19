@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,5 +33,7 @@ class PrescriptionRead(BaseModel):
 
     prescription_id: uuid.UUID
     visit_id: uuid.UUID
+    patient_id: uuid.UUID
     instructions: str | None
+    created_at: datetime
     items: list[PrescriptionItemRead]

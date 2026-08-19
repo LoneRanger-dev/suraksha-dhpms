@@ -1,9 +1,11 @@
 import uuid
+from datetime import date
 
 import pytest
 
-from app.models import MembershipPlan
-from app.models.enums import MembershipTier
+from app.core.security import create_access_token, hash_password
+from app.models import Department, Doctor, MembershipPlan, User
+from app.models.enums import MembershipTier, UserRole
 
 
 async def _create_plan(async_session, name="Free", tier=MembershipTier.FREE, validity_days=365):
@@ -133,16 +135,16 @@ async def test_patients_me_requires_authentication(client):
     assert response.status_code == 401
 
 
-async def _register_and_login(client, plan_id, phone, full_name):
-    await client.post("/api/v1/patients", json=_payload(plan_id, phone=phone, full_name=full_name))
-    login_resp = await client.post("/api/v1/auth/login", json={"phone": phone, "password": "Patient@123"})
-    return login_resp.json()["access_token"]
+async def _register_and_login(client, plan_id, phone, full_name="Records Patient"):
+    resp = await client.post("/api/v1/patients", json=_payload(plan_id, phone=phone, full_name=full_name))
+    login = await client.post("/api/v1/auth/login", json={"phone": phone, "password": "Patient@123"})
+    return resp.json(), login.json()["access_token"]
 
 
 @pytest.mark.asyncio
 async def test_add_family_member_inherits_primary_account_membership(client, async_session):
     plan = await _create_plan(async_session, name="Family Gold", tier=MembershipTier.GOLD)
-    token = await _register_and_login(client, plan.plan_id, "+919876500020", "Primary Patient")
+    _body, token = await _register_and_login(client, plan.plan_id, "+919876500020", "Primary Patient")
 
     response = await client.post(
         "/api/v1/patients/me/family",
@@ -166,8 +168,8 @@ async def test_add_family_member_inherits_primary_account_membership(client, asy
 @pytest.mark.asyncio
 async def test_list_family_members_returns_only_own_dependents(client, async_session):
     plan = await _create_plan(async_session, name="Family Gold", tier=MembershipTier.GOLD)
-    token_a = await _register_and_login(client, plan.plan_id, "+919876500021", "Primary A")
-    token_b = await _register_and_login(client, plan.plan_id, "+919876500022", "Primary B")
+    _body_a, token_a = await _register_and_login(client, plan.plan_id, "+919876500021", "Primary A")
+    _body_b, token_b = await _register_and_login(client, plan.plan_id, "+919876500022", "Primary B")
 
     await client.post(
         "/api/v1/patients/me/family",
@@ -194,3 +196,93 @@ async def test_add_family_member_requires_authentication(client):
         json={"full_name": "Nobody", "dob": "2000-01-01", "gender": "MALE", "relationship_to_primary": "OTHER"},
     )
     assert response.status_code == 401
+
+
+async def _setup_doctor(async_session, phone="+919000000040"):
+    dept = Department(name="General Medicine")
+    async_session.add(dept)
+    await async_session.flush()
+
+    doc_user = User(phone=phone, password_hash=hash_password("x"), role=UserRole.DOCTOR)
+    async_session.add(doc_user)
+    await async_session.flush()
+
+    doctor = Doctor(
+        user_id=doc_user.user_id,
+        department_id=dept.department_id,
+        full_name="Dr. Records",
+        qualification="MBBS",
+        specialization="General Medicine",
+    )
+    async_session.add(doctor)
+    await async_session.commit()
+    await async_session.refresh(doctor)
+    return doc_user, doctor
+
+
+@pytest.mark.asyncio
+async def test_patients_me_records_lists_own_visits_prescriptions_and_invoices(client, async_session):
+    plan = await _create_plan(async_session, name="Family Gold", tier=MembershipTier.GOLD)
+    patient_body, token = await _register_and_login(client, plan.plan_id, "+919876500040")
+    doc_user, _doctor = await _setup_doctor(async_session)
+    doctor_headers = {"Authorization": f"Bearer {create_access_token(subject=str(doc_user.user_id), role='DOCTOR')}"}
+
+    visit_resp = await client.post(
+        "/api/v1/consultations/visits",
+        json={"patient_id": patient_body["patient_id"], "chief_complaint": "Cough", "diagnosis": "Bronchitis"},
+        headers=doctor_headers,
+    )
+    assert visit_resp.status_code == 201
+    visit_id = visit_resp.json()["visit_id"]
+
+    rx_resp = await client.post(
+        f"/api/v1/consultations/visits/{visit_id}/prescriptions",
+        json={"items": [{"medicine_name": "Azithromycin", "dosage": "500 mg", "frequency": "1-0-0", "duration": "5 Days"}]},
+        headers=doctor_headers,
+    )
+    assert rx_resp.status_code == 201
+
+    staff_token = create_access_token(subject="00000000-0000-0000-0000-000000000099", role="RECEPTIONIST")
+    async_session.add(
+        User(
+            user_id="00000000-0000-0000-0000-000000000099",
+            phone="+919000000041",
+            password_hash=hash_password("x"),
+            role=UserRole.RECEPTIONIST,
+        )
+    )
+    await async_session.commit()
+    invoice_resp = await client.post(
+        "/api/v1/billing/invoices",
+        json={
+            "patient_id": patient_body["patient_id"],
+            "visit_id": visit_id,
+            "items": [{"description": "Consultation Fee", "category": "CONSULTATION", "unit_price": "500.00"}],
+        },
+        headers={"Authorization": f"Bearer {staff_token}"},
+    )
+    assert invoice_resp.status_code == 201
+
+    headers = {"Authorization": f"Bearer {token}"}
+    visits = await client.get("/api/v1/patients/me/visits", headers=headers)
+    prescriptions = await client.get("/api/v1/patients/me/prescriptions", headers=headers)
+    invoices = await client.get("/api/v1/patients/me/invoices", headers=headers)
+
+    assert visits.status_code == 200
+    assert len(visits.json()) == 1
+    assert visits.json()[0]["diagnosis"] == "Bronchitis"
+
+    assert prescriptions.status_code == 200
+    assert len(prescriptions.json()) == 1
+    assert prescriptions.json()[0]["items"][0]["medicine_name"] == "Azithromycin"
+
+    assert invoices.status_code == 200
+    assert len(invoices.json()) == 1
+    assert invoices.json()[0]["net_amount"] == "500.00"
+
+
+@pytest.mark.asyncio
+async def test_patients_me_records_endpoints_require_authentication(client):
+    assert (await client.get("/api/v1/patients/me/visits")).status_code == 401
+    assert (await client.get("/api/v1/patients/me/prescriptions")).status_code == 401
+    assert (await client.get("/api/v1/patients/me/invoices")).status_code == 401
