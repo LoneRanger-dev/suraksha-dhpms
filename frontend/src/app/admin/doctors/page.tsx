@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { API_BASE_URL } from "@/lib/api";
@@ -123,7 +124,12 @@ export default function AdminDoctorsPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 p-8">
-      <h1 className="text-2xl font-semibold text-foreground">Doctors & Departments</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">Doctors & Departments</h1>
+        <Link href="/admin/memberships" className="text-sm text-muted-foreground underline">
+          Membership Plans
+        </Link>
+      </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

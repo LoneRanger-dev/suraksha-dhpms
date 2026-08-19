@@ -67,6 +67,9 @@ describe("AdminDoctorsPage", () => {
 
     expect(await screen.findByText("Dr. Anjali Rao")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "General Medicine" })).toBeInTheDocument();
+
+    const membershipsLink = screen.getByRole("link", { name: /membership plans/i });
+    expect(membershipsLink.getAttribute("href")).toBe("/admin/memberships");
   });
 
   it("adds a new department", async () => {
