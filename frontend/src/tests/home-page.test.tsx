@@ -23,4 +23,10 @@ describe("Home", () => {
     const loginLinks = screen.getAllByRole("link", { name: /^log in$/i });
     expect(loginLinks.some((link) => link.getAttribute("href") === "/login")).toBe(true);
   });
+
+  it("links to the public Membership Plans and Contact pages", () => {
+    render(<Home />);
+    expect(screen.getByRole("link", { name: /membership plans/i })).toHaveAttribute("href", "/membership-plans");
+    expect(screen.getByRole("link", { name: /^contact$/i })).toHaveAttribute("href", "/contact");
+  });
 });

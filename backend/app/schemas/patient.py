@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -102,3 +103,8 @@ class MembershipPlanRead(BaseModel):
     plan_id: uuid.UUID
     name: str
     tier: MembershipTier
+    price: Decimal
+    validity_days: int
+    consultation_discount_pct: Decimal
+    lab_discount_pct: Decimal
+    pharmacy_discount_pct: Decimal
