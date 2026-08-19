@@ -18,6 +18,7 @@ STAFF_ROLES = {
     UserRole.RECEPTIONIST,
     UserRole.DOCTOR,
     UserRole.NURSE,
+    UserRole.PHARMACIST,
 }
 
 

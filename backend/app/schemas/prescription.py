@@ -36,4 +36,6 @@ class PrescriptionRead(BaseModel):
     patient_id: uuid.UUID
     instructions: str | None
     created_at: datetime
+    dispensed: bool = False
+    dispensed_at: datetime | None = None
     items: list[PrescriptionItemRead]

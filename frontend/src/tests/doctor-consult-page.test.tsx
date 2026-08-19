@@ -121,6 +121,30 @@ describe("ConsultPage", () => {
     expect(await screen.findByText(/^prescription$/i)).toBeInTheDocument();
   });
 
+  it("includes ordered lab tests when saving a visit", async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (String(url).includes("/history")) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (String(url).includes("/consultations/visits") && !String(url).includes("prescriptions")) {
+        expect(JSON.parse(String(init?.body))).toMatchObject({ lab_tests_ordered: ["CBC", "Iron Panel"] });
+        return Promise.resolve({ ok: true, json: async () => ({ visit_id: "v1", diagnosis: "Suspected anemia" }) });
+      }
+      return Promise.reject(new Error(`unexpected url ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<ConsultPage />);
+
+    await user.type(screen.getByLabelText(/chief complaint/i), "Fatigue");
+    await user.type(screen.getByLabelText(/diagnosis/i), "Suspected anemia");
+    await user.type(screen.getByLabelText(/lab tests/i), "CBC, Iron Panel");
+    await user.click(screen.getByRole("button", { name: /save visit/i }));
+
+    expect(await screen.findByText(/^prescription$/i)).toBeInTheDocument();
+  });
+
   it("sends the doctor back to their queue after saving a prescription, not to the billing page", async () => {
     vi.stubGlobal(
       "fetch",

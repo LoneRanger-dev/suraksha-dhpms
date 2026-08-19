@@ -140,4 +140,36 @@ describe("LoginPage", () => {
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/patient/dashboard"));
   });
+
+  it("redirects a pharmacist to the dispensing page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/auth/login")) {
+          return Promise.resolve({ ok: true, json: async () => ({ access_token: "pharmatok", role: "PHARMACIST" }) });
+        }
+        if (url.includes("/auth/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              user_id: "u4",
+              phone: "+919876500098",
+              role: "PHARMACIST",
+              doctor_id: null,
+              doctor_full_name: null,
+            }),
+          });
+        }
+        return Promise.reject(new Error(`unexpected url ${url}`));
+      })
+    );
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText(/phone number/i), "+919876500098");
+    await user.type(screen.getByLabelText(/password/i), "Passw0rd!");
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/pharmacy/dispense"));
+  });
 });

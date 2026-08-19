@@ -26,6 +26,7 @@ const ROLE_DESTINATIONS: Record<string, string> = {
   NURSE: "/reception/scanner",
   DOCTOR: "/doctor/dashboard",
   PATIENT: "/patient/dashboard",
+  PHARMACIST: "/pharmacy/dispense",
 };
 
 export default function LoginPage() {

@@ -205,3 +205,115 @@ async def test_follow_ups_requires_doctor_role(client, async_session):
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_doctor_orders_lab_tests_on_a_visit(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    response = await client.post(
+        "/api/v1/consultations/visits",
+        json={
+            "patient_id": str(patient.patient_id),
+            "chief_complaint": "Fatigue",
+            "diagnosis": "Suspected anemia",
+            "lab_tests_ordered": ["CBC", "Iron Panel"],
+        },
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["lab_tests_ordered"] == ["CBC", "Iron Panel"]
+
+
+@pytest.mark.asyncio
+async def test_pharmacist_lists_a_patients_prescriptions(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    visit_resp = await client.post(
+        "/api/v1/consultations/visits",
+        json={"patient_id": str(patient.patient_id), "chief_complaint": "Fever", "diagnosis": "Viral fever"},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    visit_id = visit_resp.json()["visit_id"]
+
+    await client.post(
+        f"/api/v1/consultations/visits/{visit_id}/prescriptions",
+        json={"items": [{"medicine_name": "Paracetamol", "dosage": "500 mg", "frequency": "1-0-1", "duration": "3 Days"}]},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+
+    pharmacist = User(phone="+919000000024", password_hash=hash_password("x"), role=UserRole.PHARMACIST)
+    async_session.add(pharmacist)
+    await async_session.commit()
+    await async_session.refresh(pharmacist)
+
+    response = await client.get(
+        f"/api/v1/consultations/patients/{patient.patient_id}/prescriptions",
+        headers=_headers_for(pharmacist.user_id, "PHARMACIST"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["dispensed"] is False
+    assert body[0]["items"][0]["medicine_name"] == "Paracetamol"
+
+
+@pytest.mark.asyncio
+async def test_pharmacist_dispenses_a_prescription(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    visit_resp = await client.post(
+        "/api/v1/consultations/visits",
+        json={"patient_id": str(patient.patient_id), "chief_complaint": "Fever", "diagnosis": "Viral fever"},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    visit_id = visit_resp.json()["visit_id"]
+
+    rx_resp = await client.post(
+        f"/api/v1/consultations/visits/{visit_id}/prescriptions",
+        json={"items": [{"medicine_name": "Paracetamol", "dosage": "500 mg", "frequency": "1-0-1", "duration": "3 Days"}]},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    prescription_id = rx_resp.json()["prescription_id"]
+
+    pharmacist = User(phone="+919000000025", password_hash=hash_password("x"), role=UserRole.PHARMACIST)
+    async_session.add(pharmacist)
+    await async_session.commit()
+    await async_session.refresh(pharmacist)
+
+    response = await client.post(
+        f"/api/v1/consultations/prescriptions/{prescription_id}/dispense",
+        headers=_headers_for(pharmacist.user_id, "PHARMACIST"),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["dispensed"] is True
+    assert response.json()["dispensed_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_non_pharmacist_cannot_dispense(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    visit_resp = await client.post(
+        "/api/v1/consultations/visits",
+        json={"patient_id": str(patient.patient_id), "chief_complaint": "Fever", "diagnosis": "Viral fever"},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    visit_id = visit_resp.json()["visit_id"]
+
+    rx_resp = await client.post(
+        f"/api/v1/consultations/visits/{visit_id}/prescriptions",
+        json={"items": [{"medicine_name": "Paracetamol", "dosage": "500 mg", "frequency": "1-0-1", "duration": "3 Days"}]},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    prescription_id = rx_resp.json()["prescription_id"]
+
+    response = await client.post(
+        f"/api/v1/consultations/prescriptions/{prescription_id}/dispense",
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+
+    assert response.status_code == 403

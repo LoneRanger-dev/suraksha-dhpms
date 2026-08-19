@@ -14,6 +14,7 @@ interface PastVisit {
   chief_complaint: string;
   diagnosis: string;
   visit_date: string;
+  lab_tests_ordered?: string[] | null;
 }
 
 interface PrescriptionItemInput {
@@ -49,6 +50,7 @@ function ConsultPageContent() {
   const [diagnosis, setDiagnosis] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [labTests, setLabTests] = useState("");
   const [visitId, setVisitId] = useState<string | null>(null);
   const [savingVisit, setSavingVisit] = useState(false);
   const [visitError, setVisitError] = useState<string | null>(null);
@@ -97,6 +99,10 @@ function ConsultPageContent() {
           diagnosis,
           doctor_notes: doctorNotes || undefined,
           follow_up_date: followUpDate || undefined,
+          lab_tests_ordered: labTests
+            .split(",")
+            .map((test) => test.trim())
+            .filter(Boolean),
         }),
       });
       if (!response.ok) throw new Error("Failed to save visit");
@@ -170,6 +176,9 @@ function ConsultPageContent() {
                 <p className="text-xs text-muted-foreground">
                   {visit.chief_complaint} · {new Date(visit.visit_date).toLocaleDateString("en-IN")}
                 </p>
+                {visit.lab_tests_ordered && visit.lab_tests_ordered.length > 0 && (
+                  <p className="text-xs text-muted-foreground">Labs: {visit.lab_tests_ordered.join(", ")}</p>
+                )}
               </li>
             ))}
           </ul>
@@ -233,6 +242,19 @@ function ConsultPageContent() {
             type="date"
             value={followUpDate}
             onChange={(event) => setFollowUpDate(event.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="lab_tests" className="text-sm font-medium text-foreground">
+            Lab Tests to Order (optional, comma-separated)
+          </label>
+          <input
+            id="lab_tests"
+            placeholder="e.g., CBC, Iron Panel"
+            value={labTests}
+            onChange={(event) => setLabTests(event.target.value)}
             className={inputClass}
           />
         </div>

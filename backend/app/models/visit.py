@@ -28,6 +28,7 @@ class Visit(Base):
     diagnosis: Mapped[str] = mapped_column(Text, nullable=False)
     doctor_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     follow_up_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    lab_tests_ordered: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     appointment: Mapped["Appointment | None"] = relationship(back_populates="visits")

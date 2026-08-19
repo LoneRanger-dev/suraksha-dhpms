@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -16,6 +17,8 @@ from app.services.prescription_pdf_service import generate_prescription_pdf
 router = APIRouter(prefix="/api/v1/consultations", tags=["consultations"])
 
 HISTORY_VIEW_ROLES = {UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.NURSE}
+PRESCRIPTION_VIEW_ROLES = {UserRole.PHARMACIST, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.NURSE}
+DISPENSE_ROLES = {UserRole.PHARMACIST, UserRole.ADMIN, UserRole.SUPER_ADMIN}
 
 
 async def _require_doctor(db: AsyncSession, current_user: User) -> Doctor:
@@ -50,6 +53,7 @@ async def record_visit(
         diagnosis=payload.diagnosis,
         doctor_notes=payload.doctor_notes,
         follow_up_date=payload.follow_up_date,
+        lab_tests_ordered=payload.lab_tests_ordered,
     )
     db.add(visit)
 
@@ -139,6 +143,48 @@ async def list_my_follow_ups(
         )
         for visit in visits
     ]
+
+
+@router.get("/patients/{patient_id}/prescriptions", response_model=list[PrescriptionRead])
+async def get_patient_prescriptions(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[PrescriptionRead]:
+    if current_user.role not in PRESCRIPTION_VIEW_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to view prescriptions")
+
+    result = await db.execute(
+        select(Prescription)
+        .options(selectinload(Prescription.items))
+        .where(Prescription.patient_id == patient_id)
+        .order_by(Prescription.created_at.desc())
+    )
+    return [PrescriptionRead.model_validate(rx) for rx in result.scalars().all()]
+
+
+@router.post("/prescriptions/{prescription_id}/dispense", response_model=PrescriptionRead)
+async def dispense_prescription(
+    prescription_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PrescriptionRead:
+    if current_user.role not in DISPENSE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to dispense prescriptions")
+
+    result = await db.execute(
+        select(Prescription).options(selectinload(Prescription.items)).where(
+            Prescription.prescription_id == prescription_id
+        )
+    )
+    prescription = result.scalar_one_or_none()
+    if prescription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescription not found")
+
+    prescription.dispensed = True
+    prescription.dispensed_at = datetime.now(timezone.utc)
+    await db.commit()
+    return PrescriptionRead.model_validate(prescription)
 
 
 @router.get("/prescriptions/{prescription_id}/pdf")

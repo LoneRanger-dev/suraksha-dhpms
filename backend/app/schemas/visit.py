@@ -21,6 +21,7 @@ class VisitCreate(BaseModel):
     diagnosis: str
     doctor_notes: str | None = None
     follow_up_date: date | None = None
+    lab_tests_ordered: list[str] = []
 
 
 class VisitRead(BaseModel):
@@ -33,6 +34,7 @@ class VisitRead(BaseModel):
     diagnosis: str
     visit_date: datetime
     follow_up_date: date | None = None
+    lab_tests_ordered: list[str] | None = None
 
 
 class FollowUpItem(BaseModel):

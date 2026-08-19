@@ -94,3 +94,21 @@ async def test_scan_by_printed_patient_display_id_resolves_same_card(client, asy
 async def test_scan_unknown_patient_display_id_returns_404(client):
     response = await client.get("/api/v1/scan/SUR-2026-999999")
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_scan_as_pharmacist_returns_full_dossier(client, async_session):
+    """A pharmacist needs patient_id from the scan to look up prescriptions to dispense."""
+    _patient, card = await _register_patient_with_card(async_session)
+
+    staff = User(phone="+919999998889", password_hash=hash_password("x"), role=UserRole.PHARMACIST)
+    async_session.add(staff)
+    await async_session.commit()
+    await async_session.refresh(staff)
+
+    token = create_access_token(subject=str(staff.user_id), role="PHARMACIST")
+
+    response = await client.get(f"/api/v1/scan/{card.token_uuid}", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert response.json()["patient_display_id"] == "SUR-2026-000500"
