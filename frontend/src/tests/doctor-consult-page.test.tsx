@@ -29,6 +29,7 @@ describe("ConsultPage", () => {
   });
 
   it("renders the patient name and vitals/diagnosis fields", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<ConsultPage />);
     expect(screen.getByText("Consult Patient")).toBeInTheDocument();
     expect(screen.getByLabelText(/chief complaint/i)).toBeInTheDocument();
@@ -36,10 +37,49 @@ describe("ConsultPage", () => {
     expect(screen.getByLabelText(/blood pressure/i)).toBeInTheDocument();
   });
 
+  it("shows the patient's previous visit history on load", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (String(url).includes("/history")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              {
+                visit_id: "v0",
+                patient_id: "p1",
+                doctor_id: "d2",
+                chief_complaint: "Cough",
+                diagnosis: "Bronchitis",
+                visit_date: "2026-07-01T09:00:00Z",
+              },
+            ],
+          });
+        }
+        return Promise.reject(new Error(`unexpected url ${url}`));
+      })
+    );
+
+    render(<ConsultPage />);
+
+    expect(await screen.findByText("Bronchitis")).toBeInTheDocument();
+  });
+
+  it("shows a no-history message when the patient has no previous visits", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+
+    render(<ConsultPage />);
+
+    expect(await screen.findByText(/no previous visits/i)).toBeInTheDocument();
+  });
+
   it("saves the visit and reveals the prescription builder", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
+        if (String(url).includes("/history")) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
         if (String(url).includes("/consultations/visits") && !String(url).includes("prescriptions")) {
           return Promise.resolve({ ok: true, json: async () => ({ visit_id: "v1", diagnosis: "Viral fever" }) });
         }
@@ -61,6 +101,9 @@ describe("ConsultPage", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
+        if (String(url).includes("/history")) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
         if (String(url).includes("/prescriptions")) {
           return Promise.resolve({ ok: true, json: async () => ({ prescription_id: "rx1", items: [] }) });
         }

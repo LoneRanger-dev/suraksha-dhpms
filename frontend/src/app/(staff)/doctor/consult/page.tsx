@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { VitalsForm, type VitalsFormValues } from "@/components/clinical/VitalsForm";
 import { API_BASE_URL } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
+
+interface PastVisit {
+  visit_id: string;
+  chief_complaint: string;
+  diagnosis: string;
+  visit_date: string;
+}
 
 interface PrescriptionItemInput {
   medicine_name: string;
@@ -50,6 +57,19 @@ function ConsultPageContent() {
   const [prescriptionSaved, setPrescriptionSaved] = useState(false);
   const [savingPrescription, setSavingPrescription] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<PastVisit[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token || !patientId) return;
+    fetch(`${API_BASE_URL}/api/v1/consultations/patients/${patientId}/history`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setHistory(Array.isArray(data) ? data : []))
+      .finally(() => setHistoryLoading(false));
+  }, [token, patientId]);
 
   async function handleSaveVisit() {
     if (!patientId) return;
@@ -133,6 +153,26 @@ function ConsultPageContent() {
         <h1 className="text-2xl font-semibold text-foreground">{patientName}</h1>
         <p className="text-sm text-muted-foreground">Consultation · {doctorFullName ?? "Doctor"}</p>
       </div>
+
+      <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <h2 className="text-sm font-semibold text-foreground">Patient History</h2>
+        {historyLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No previous visits on record.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {history.map((visit) => (
+              <li key={visit.visit_id} className="rounded-md border border-border p-3">
+                <p className="text-sm font-semibold text-foreground">{visit.diagnosis}</p>
+                <p className="text-xs text-muted-foreground">
+                  {visit.chief_complaint} · {new Date(visit.visit_date).toLocaleDateString("en-IN")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="flex flex-col gap-4 rounded-lg border border-border p-4">
         <h2 className="text-sm font-semibold text-foreground">Vitals</h2>
