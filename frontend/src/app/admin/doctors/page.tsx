@@ -126,9 +126,14 @@ export default function AdminDoctorsPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Doctors & Departments</h1>
-        <Link href="/admin/memberships" className="text-sm text-muted-foreground underline">
-          Membership Plans
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/admin/patients" className="text-sm text-muted-foreground underline">
+            Patients
+          </Link>
+          <Link href="/admin/memberships" className="text-sm text-muted-foreground underline">
+            Membership Plans
+          </Link>
+        </div>
       </div>
 
       {loading ? (

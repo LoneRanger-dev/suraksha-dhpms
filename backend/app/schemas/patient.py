@@ -47,6 +47,18 @@ class PatientRead(BaseModel):
     qr_card: QRCardRead
 
 
+class PatientListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    patient_id: uuid.UUID
+    patient_display_id: str
+    full_name: str
+    dob: date
+    gender: GenderType
+    emergency_contact_phone: str
+    created_at: datetime
+
+
 class PatientMeRead(BaseModel):
     patient_id: uuid.UUID
     patient_display_id: str

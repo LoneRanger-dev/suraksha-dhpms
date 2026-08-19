@@ -12,13 +12,23 @@ from app.models import Appointment, Invoice, MembershipPlan, Patient, Prescripti
 from app.models.enums import UserRole
 from app.schemas.appointment import AppointmentQueueItem
 from app.schemas.billing import InvoiceRead
-from app.schemas.patient import FamilyMemberCreate, FamilyMemberRead, PatientCreate, PatientMeRead, PatientRead, QRCardRead
+from app.schemas.patient import (
+    FamilyMemberCreate,
+    FamilyMemberRead,
+    PatientCreate,
+    PatientListItem,
+    PatientMeRead,
+    PatientRead,
+    QRCardRead,
+)
 from app.schemas.prescription import PrescriptionRead
 from app.schemas.visit import VisitRead
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
 
 router = APIRouter(prefix="/api/v1/patients", tags=["patients"])
+
+PATIENT_LIST_ROLES = {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.RECEPTIONIST}
 
 
 async def _get_plan_or_404(db: AsyncSession, plan_id: uuid.UUID) -> MembershipPlan:
@@ -87,6 +97,26 @@ async def register_patient(payload: PatientCreate, db: AsyncSession = Depends(ge
     await db.refresh(card)
 
     return _to_patient_read(patient, card)
+
+
+@router.get("", response_model=list[PatientListItem])
+async def list_all_patients(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    search: str | None = None,
+) -> list[PatientListItem]:
+    if current_user.role not in PATIENT_LIST_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to view the patient roster")
+
+    query = select(Patient).order_by(Patient.created_at.desc())
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            (Patient.full_name.ilike(like)) | (Patient.patient_display_id.ilike(like))
+        )
+
+    result = await db.execute(query)
+    return [PatientListItem.model_validate(patient) for patient in result.scalars().all()]
 
 
 @router.get("/me", response_model=PatientMeRead)
