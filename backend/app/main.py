@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import appointments, auth, billing, consultations, doctors, memberships, patients, qrcards, scan
+from app.api.v1 import (
+    appointments,
+    auth,
+    billing,
+    consultations,
+    departments,
+    doctors,
+    memberships,
+    patients,
+    qrcards,
+    scan,
+)
 from app.core.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -23,6 +34,7 @@ app.include_router(appointments.router)
 app.include_router(consultations.router)
 app.include_router(billing.router)
 app.include_router(doctors.router)
+app.include_router(departments.router)
 
 
 @app.get("/health")

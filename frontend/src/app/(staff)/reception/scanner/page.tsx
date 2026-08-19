@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import type { DoctorOption } from "@/components/qr/QrReaderModal";
@@ -39,6 +40,11 @@ export default function ReceptionScannerPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+            <Link href="/admin/doctors" className="text-sm text-muted-foreground underline">
+              Manage Doctors
+            </Link>
+          )}
           <Badge variant="outline" className="border-success text-success">
             Signed in
           </Badge>

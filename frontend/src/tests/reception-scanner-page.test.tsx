@@ -49,5 +49,20 @@ describe("ReceptionScannerPage", () => {
     expect(screen.getByRole("heading", { name: /fast-scan check-in/i })).toBeInTheDocument();
     expect(await screen.findByLabelText(/patient id or token/i)).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link", { name: /manage doctors/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a Manage Doctors link for an admin role", async () => {
+    useAuthStore.setState({
+      token: "admin-token",
+      role: "SUPER_ADMIN",
+      phone: "+919876543211",
+      doctorId: null,
+      doctorFullName: null,
+    });
+    render(<ReceptionScannerPage />);
+
+    const link = await screen.findByRole("link", { name: /manage doctors/i });
+    expect(link.getAttribute("href")).toBe("/admin/doctors");
   });
 });
