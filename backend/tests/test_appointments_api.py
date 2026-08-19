@@ -1,10 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from app.core.security import create_access_token, hash_password
-from app.models import Department, Doctor, Patient, User
-from app.models.enums import GenderType, UserRole
+from app.models import Department, Doctor, MembershipPlan, Patient, User
+from app.models.enums import GenderType, MembershipTier, UserRole
 
 
 async def _setup_patient_and_doctor(async_session):
@@ -140,3 +140,113 @@ async def test_doctor_sees_only_their_own_queue_by_default(client, async_session
 async def test_appointments_list_requires_staff_auth(client):
     response = await client.get("/api/v1/appointments")
     assert response.status_code == 401
+
+
+async def _register_patient(client, async_session, phone, full_name="Booking Patient"):
+    plan = MembershipPlan(name="Free", tier=MembershipTier.FREE, validity_days=365)
+    async_session.add(plan)
+    await async_session.commit()
+
+    resp = await client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": full_name,
+            "dob": "1990-01-01",
+            "gender": "MALE",
+            "phone": phone,
+            "password": "Patient@123",
+            "emergency_contact_phone": "+919876500097",
+            "plan_id": str(plan.plan_id),
+        },
+    )
+    login = await client.post("/api/v1/auth/login", json={"phone": phone, "password": "Patient@123"})
+    return resp.json(), login.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_patient_books_an_appointment_for_themselves(client, async_session):
+    _patient, doctor = await _setup_patient_and_doctor(async_session)
+    _patient_body, token = await _register_patient(client, async_session, "+919876500030")
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    response = await client.post(
+        "/api/v1/appointments/book",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"doctor_id": str(doctor.doctor_id), "appointment_date": tomorrow, "time_slot": "10:30"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "SCHEDULED"
+    assert body["token_number"].startswith("CARDIO-")
+
+
+@pytest.mark.asyncio
+async def test_patient_cannot_book_for_an_unrelated_patient(client, async_session):
+    _patient, doctor = await _setup_patient_and_doctor(async_session)
+    _body, token = await _register_patient(client, async_session, "+919876500031")
+
+    import uuid
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    response = await client.post(
+        "/api/v1/appointments/book",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "doctor_id": str(doctor.doctor_id),
+            "appointment_date": tomorrow,
+            "time_slot": "10:30",
+            "patient_id": str(uuid.uuid4()),
+        },
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_receptionist_can_book_on_behalf_of_a_patient(client, async_session):
+    patient, doctor = await _setup_patient_and_doctor(async_session)
+
+    receptionist = User(
+        user_id="00000000-0000-0000-0000-000000000001",
+        phone="+919000000014",
+        password_hash=hash_password("x"),
+        role=UserRole.RECEPTIONIST,
+    )
+    async_session.add(receptionist)
+    await async_session.commit()
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    response = await client.post(
+        "/api/v1/appointments/book",
+        headers=_staff_headers(),
+        json={
+            "doctor_id": str(doctor.doctor_id),
+            "appointment_date": tomorrow,
+            "time_slot": "11:00",
+            "patient_id": str(patient.patient_id),
+        },
+    )
+
+    assert response.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_patients_me_appointments_lists_own_bookings(client, async_session):
+    _patient, doctor = await _setup_patient_and_doctor(async_session)
+    _body, token = await _register_patient(client, async_session, "+919876500032")
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    await client.post(
+        "/api/v1/appointments/book",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"doctor_id": str(doctor.doctor_id), "appointment_date": tomorrow, "time_slot": "09:00"},
+    )
+
+    response = await client.get("/api/v1/patients/me/appointments", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["doctor_full_name"] == "Dr. Check-in"
+    assert body[0]["status"] == "SCHEDULED"

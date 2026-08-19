@@ -3,12 +3,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.models import MembershipPlan, Patient, QRCard, User
+from app.models import Appointment, MembershipPlan, Patient, QRCard, User
 from app.models.enums import UserRole
+from app.schemas.appointment import AppointmentQueueItem
 from app.schemas.patient import FamilyMemberCreate, FamilyMemberRead, PatientCreate, PatientMeRead, PatientRead, QRCardRead
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
@@ -169,6 +171,43 @@ async def list_family_members(
     )
     dependents = result.scalars().all()
     return [FamilyMemberRead.model_validate(dependent) for dependent in dependents]
+
+
+@router.get("/me/appointments", response_model=list[AppointmentQueueItem])
+async def list_my_appointments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[AppointmentQueueItem]:
+    primary = await _get_own_patient_or_404(db, current_user)
+
+    dependents_result = await db.execute(
+        select(Patient.patient_id).where(Patient.primary_account_id == primary.patient_id)
+    )
+    patient_ids = [primary.patient_id] + [row[0] for row in dependents_result.all()]
+
+    result = await db.execute(
+        select(Appointment)
+        .options(selectinload(Appointment.patient), selectinload(Appointment.doctor))
+        .where(Appointment.patient_id.in_(patient_ids))
+        .order_by(Appointment.appointment_date.desc(), Appointment.time_slot.desc())
+    )
+    appointments = result.scalars().all()
+
+    return [
+        AppointmentQueueItem(
+            appointment_id=appt.appointment_id,
+            patient_id=appt.patient_id,
+            patient_display_id=appt.patient.patient_display_id,
+            patient_full_name=appt.patient.full_name,
+            doctor_id=appt.doctor_id,
+            doctor_full_name=appt.doctor.full_name,
+            token_number=appt.token_number,
+            time_slot=appt.time_slot,
+            appointment_date=appt.appointment_date,
+            status=appt.status,
+        )
+        for appt in appointments
+    ]
 
 
 @router.get("/{patient_id}", response_model=PatientRead)

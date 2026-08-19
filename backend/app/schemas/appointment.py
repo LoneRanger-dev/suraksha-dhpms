@@ -12,6 +12,14 @@ class QueueCheckInRequest(BaseModel):
     reason_for_visit: str | None = None
 
 
+class AppointmentBookRequest(BaseModel):
+    doctor_id: uuid.UUID
+    appointment_date: date
+    time_slot: str
+    reason_for_visit: str | None = None
+    patient_id: uuid.UUID | None = None
+
+
 class AppointmentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
