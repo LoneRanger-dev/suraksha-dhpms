@@ -136,3 +136,72 @@ async def test_get_patient_history_returns_visits_newest_first(client, async_ses
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["chief_complaint"] == "Cough"
+
+
+@pytest.mark.asyncio
+async def test_doctor_records_a_follow_up_date_on_a_visit(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    response = await client.post(
+        "/api/v1/consultations/visits",
+        json={
+            "patient_id": str(patient.patient_id),
+            "chief_complaint": "Back pain",
+            "diagnosis": "Muscle strain",
+            "follow_up_date": "2026-09-01",
+        },
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["follow_up_date"] == "2026-09-01"
+
+
+@pytest.mark.asyncio
+async def test_doctor_sees_only_their_own_upcoming_follow_ups(client, async_session):
+    doc_user, _doctor, patient = await _setup_doctor_and_patient(async_session)
+
+    await client.post(
+        "/api/v1/consultations/visits",
+        json={
+            "patient_id": str(patient.patient_id),
+            "chief_complaint": "Back pain",
+            "diagnosis": "Muscle strain",
+            "follow_up_date": "2026-09-01",
+        },
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+    await client.post(
+        "/api/v1/consultations/visits",
+        json={"patient_id": str(patient.patient_id), "chief_complaint": "Cold", "diagnosis": "Common cold"},
+        headers=_headers_for(doc_user.user_id, "DOCTOR"),
+    )
+
+    other_doc_user = User(phone="+919000000022", password_hash=hash_password("x"), role=UserRole.DOCTOR)
+    async_session.add(other_doc_user)
+    await async_session.commit()
+
+    response = await client.get(
+        "/api/v1/consultations/follow-ups", headers=_headers_for(doc_user.user_id, "DOCTOR")
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["diagnosis"] == "Muscle strain"
+    assert body[0]["patient_full_name"] == "Consult Patient"
+
+
+@pytest.mark.asyncio
+async def test_follow_ups_requires_doctor_role(client, async_session):
+    _doc_user, _doctor, _patient = await _setup_doctor_and_patient(async_session)
+    nurse = User(phone="+919000000023", password_hash=hash_password("x"), role=UserRole.NURSE)
+    async_session.add(nurse)
+    await async_session.commit()
+    await async_session.refresh(nurse)
+
+    response = await client.get(
+        "/api/v1/consultations/follow-ups", headers=_headers_for(nurse.user_id, "NURSE")
+    )
+
+    assert response.status_code == 403

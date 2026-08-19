@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,6 +20,7 @@ class VisitCreate(BaseModel):
     vitals: VitalsInput | None = None
     diagnosis: str
     doctor_notes: str | None = None
+    follow_up_date: date | None = None
 
 
 class VisitRead(BaseModel):
@@ -31,3 +32,13 @@ class VisitRead(BaseModel):
     chief_complaint: str
     diagnosis: str
     visit_date: datetime
+    follow_up_date: date | None = None
+
+
+class FollowUpItem(BaseModel):
+    visit_id: uuid.UUID
+    patient_id: uuid.UUID
+    patient_display_id: str
+    patient_full_name: str
+    diagnosis: str
+    follow_up_date: date

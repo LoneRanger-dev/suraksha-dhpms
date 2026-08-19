@@ -37,6 +37,9 @@ describe("DoctorDashboardPage", () => {
 
     const notifLink = screen.getByRole("link", { name: /notifications/i });
     expect(notifLink.getAttribute("href")).toBe("/notifications");
+
+    const followUpsLink = screen.getByRole("link", { name: /follow-ups/i });
+    expect(followUpsLink.getAttribute("href")).toBe("/doctor/follow-ups");
   });
 
   it("lists a checked-in patient and links to their consultation", async () => {

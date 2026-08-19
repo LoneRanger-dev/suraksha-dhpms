@@ -48,6 +48,7 @@ function ConsultPageContent() {
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
   const [visitId, setVisitId] = useState<string | null>(null);
   const [savingVisit, setSavingVisit] = useState(false);
   const [visitError, setVisitError] = useState<string | null>(null);
@@ -95,6 +96,7 @@ function ConsultPageContent() {
             : undefined,
           diagnosis,
           doctor_notes: doctorNotes || undefined,
+          follow_up_date: followUpDate || undefined,
         }),
       });
       if (!response.ok) throw new Error("Failed to save visit");
@@ -219,6 +221,19 @@ function ConsultPageContent() {
             onChange={(event) => setDoctorNotes(event.target.value)}
             className={inputClass}
             rows={2}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="follow_up_date" className="text-sm font-medium text-foreground">
+            Follow-up Date (optional)
+          </label>
+          <input
+            id="follow_up_date"
+            type="date"
+            value={followUpDate}
+            onChange={(event) => setFollowUpDate(event.target.value)}
+            className={inputClass}
           />
         </div>
 

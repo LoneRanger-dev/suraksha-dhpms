@@ -3,13 +3,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import Appointment, Doctor, Patient, Prescription, PrescriptionItem, User, Visit
 from app.models.enums import AppointmentStatus, UserRole
 from app.schemas.prescription import PrescriptionCreate, PrescriptionRead
-from app.schemas.visit import VisitCreate, VisitRead
+from app.schemas.visit import FollowUpItem, VisitCreate, VisitRead
 from app.services.prescription_pdf_service import generate_prescription_pdf
 
 router = APIRouter(prefix="/api/v1/consultations", tags=["consultations"])
@@ -48,6 +49,7 @@ async def record_visit(
         vitals=payload.vitals.model_dump(exclude_none=True) if payload.vitals else None,
         diagnosis=payload.diagnosis,
         doctor_notes=payload.doctor_notes,
+        follow_up_date=payload.follow_up_date,
     )
     db.add(visit)
 
@@ -109,6 +111,34 @@ async def get_patient_history(
     result = await db.execute(select(Visit).where(Visit.patient_id == patient_id).order_by(Visit.visit_date.desc()))
     visits = result.scalars().all()
     return [VisitRead.model_validate(v) for v in visits]
+
+
+@router.get("/follow-ups", response_model=list[FollowUpItem])
+async def list_my_follow_ups(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[FollowUpItem]:
+    doctor = await _require_doctor(db, current_user)
+
+    result = await db.execute(
+        select(Visit)
+        .options(selectinload(Visit.patient))
+        .where(Visit.doctor_id == doctor.doctor_id, Visit.follow_up_date.is_not(None))
+        .order_by(Visit.follow_up_date)
+    )
+    visits = result.scalars().all()
+
+    return [
+        FollowUpItem(
+            visit_id=visit.visit_id,
+            patient_id=visit.patient_id,
+            patient_display_id=visit.patient.patient_display_id,
+            patient_full_name=visit.patient.full_name,
+            diagnosis=visit.diagnosis,
+            follow_up_date=visit.follow_up_date,
+        )
+        for visit in visits
+    ]
 
 
 @router.get("/prescriptions/{prescription_id}/pdf")
