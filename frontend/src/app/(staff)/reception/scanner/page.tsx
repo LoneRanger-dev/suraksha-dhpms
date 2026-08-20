@@ -40,6 +40,9 @@ export default function ReceptionScannerPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/reception/queue" className="text-sm text-muted-foreground underline">
+            Live Queue
+          </Link>
           {(role === "ADMIN" || role === "SUPER_ADMIN") && (
             <Link href="/admin/doctors" className="text-sm text-muted-foreground underline">
               Manage Doctors

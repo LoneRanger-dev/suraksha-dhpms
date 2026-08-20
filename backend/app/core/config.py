@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     )
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "dev-secret-change-me"
+    # Base URL of the deployed frontend - encoded into every QR card's scan
+    # link, so it must point at wherever /scan/[token] is actually reachable.
+    frontend_base_url: str = "https://suraksha-dhpms.vercel.app"
     cors_allow_origins: list[str] = [
         "http://localhost:3001",
         "http://127.0.0.1:3001",

@@ -12,3 +12,13 @@ class NotificationRead(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
+
+
+class NotificationAdminRead(BaseModel):
+    notification_id: uuid.UUID
+    recipient_phone: str
+    recipient_role: str
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime

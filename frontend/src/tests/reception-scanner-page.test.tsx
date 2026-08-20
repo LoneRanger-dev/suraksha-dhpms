@@ -50,6 +50,9 @@ describe("ReceptionScannerPage", () => {
     expect(await screen.findByLabelText(/patient id or token/i)).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
     expect(screen.queryByRole("link", { name: /manage doctors/i })).not.toBeInTheDocument();
+
+    const queueLink = screen.getByRole("link", { name: /live queue/i });
+    expect(queueLink.getAttribute("href")).toBe("/reception/queue");
   });
 
   it("shows a Manage Doctors link for an admin role", async () => {

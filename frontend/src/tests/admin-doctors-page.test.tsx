@@ -79,6 +79,12 @@ describe("AdminDoctorsPage", () => {
 
     const auditLogsLink = screen.getByRole("link", { name: /audit logs/i });
     expect(auditLogsLink.getAttribute("href")).toBe("/admin/audit-logs");
+
+    const appointmentsLink = screen.getByRole("link", { name: /appointments/i });
+    expect(appointmentsLink.getAttribute("href")).toBe("/admin/appointments");
+
+    const notificationsLink = screen.getByRole("link", { name: /notifications/i });
+    expect(notificationsLink.getAttribute("href")).toBe("/admin/notifications");
   });
 
   it("adds a new department", async () => {

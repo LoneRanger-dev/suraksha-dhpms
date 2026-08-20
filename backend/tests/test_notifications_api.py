@@ -166,3 +166,44 @@ async def test_mark_notification_as_read(client, async_session):
 @pytest.mark.asyncio
 async def test_notifications_require_authentication(client):
     assert (await client.get("/api/v1/notifications/me")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_super_admin_lists_all_notifications(client, async_session):
+    plan = MembershipPlan(name="Free", tier=MembershipTier.FREE, validity_days=365)
+    async_session.add(plan)
+    await async_session.commit()
+    await async_session.refresh(plan)
+
+    doc_user, doctor = await _setup_doctor(async_session, phone="+919000000074")
+    _patient_body, patient_token = await _register_and_login(client, plan.plan_id, "+919876500082")
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    await client.post(
+        "/api/v1/appointments/book",
+        headers={"Authorization": f"Bearer {patient_token}"},
+        json={"doctor_id": str(doctor.doctor_id), "appointment_date": tomorrow, "time_slot": "10:00"},
+    )
+
+    admin = User(phone="+919000000075", password_hash=hash_password("x"), role=UserRole.SUPER_ADMIN)
+    async_session.add(admin)
+    await async_session.commit()
+    await async_session.refresh(admin)
+    admin_token = create_access_token(subject=str(admin.user_id), role="SUPER_ADMIN")
+
+    response = await client.get("/api/v1/notifications", headers={"Authorization": f"Bearer {admin_token}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    assert {n["recipient_phone"] for n in body} == {"+919000000074", "+919876500082"}
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_list_all_notifications(client, async_session):
+    doc_user, _doctor = await _setup_doctor(async_session, phone="+919000000076")
+    doctor_token = create_access_token(subject=str(doc_user.user_id), role="DOCTOR")
+
+    response = await client.get("/api/v1/notifications", headers={"Authorization": f"Bearer {doctor_token}"})
+
+    assert response.status_code == 403

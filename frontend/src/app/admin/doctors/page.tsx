@@ -130,11 +130,17 @@ export default function AdminDoctorsPage() {
           <Link href="/admin/patients" className="text-sm text-muted-foreground underline">
             Patients
           </Link>
+          <Link href="/admin/appointments" className="text-sm text-muted-foreground underline">
+            Appointments
+          </Link>
           <Link href="/admin/memberships" className="text-sm text-muted-foreground underline">
             Membership Plans
           </Link>
           <Link href="/admin/billing" className="text-sm text-muted-foreground underline">
             Billing
+          </Link>
+          <Link href="/admin/notifications" className="text-sm text-muted-foreground underline">
+            Notifications
           </Link>
           <Link href="/admin/audit-logs" className="text-sm text-muted-foreground underline">
             Audit Logs

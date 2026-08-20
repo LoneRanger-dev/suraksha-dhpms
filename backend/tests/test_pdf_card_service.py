@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from app.models import MembershipPlan, Patient, QRCard
 from app.models.enums import CardStatus, GenderType, MembershipTier
+from app.services import pdf_card_service
 from app.services.pdf_card_service import generate_health_card_pdf
 
 
@@ -30,3 +31,12 @@ def test_generates_valid_pdf_bytes():
 
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 500
+
+
+def test_scan_url_uses_the_configured_frontend_base_url(monkeypatch):
+    monkeypatch.setattr(pdf_card_service.settings, "frontend_base_url", "https://example.com")
+    token = uuid.uuid4()
+
+    url = pdf_card_service._scan_url(token)
+
+    assert url == f"https://example.com/scan/{token}"

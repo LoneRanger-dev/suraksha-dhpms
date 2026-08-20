@@ -1,4 +1,5 @@
 import io
+import uuid
 from datetime import date
 
 from qrcode import QRCode
@@ -7,6 +8,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from app.core.config import settings
 from app.models import MembershipPlan, Patient, QRCard
 
 # ISO/IEC 7810 ID-1 (CR80) standard card size.
@@ -19,9 +21,13 @@ VIVID_RED = (0xEF / 255, 0x44 / 255, 0x44 / 255)
 MUTED_SLATE = (0x64 / 255, 0x74 / 255, 0x8B / 255)
 
 
+def _scan_url(token_uuid: uuid.UUID) -> str:
+    return f"{settings.frontend_base_url}/scan/{token_uuid}"
+
+
 def _build_qr_image(card: QRCard) -> io.BytesIO:
     qr = QRCode(error_correction=ERROR_CORRECT_M, box_size=6, border=2)
-    qr.add_data(f"https://app.suraksha.com/scan/{card.token_uuid}")
+    qr.add_data(_scan_url(card.token_uuid))
     qr.make(fit=True)
     qr_buffer = io.BytesIO()
     qr.make_image(fill_color="#0F172A", back_color="white").save(qr_buffer, format="PNG")
@@ -95,7 +101,8 @@ def generate_health_card_pdf(
     pdf.setFillColorRGB(*MUTED_SLATE)
     pdf.setFont("Helvetica", 4.5)
     pdf.drawString(3 * mm, 3 * mm, f"24x7 EMERGENCY: {patient.emergency_contact_phone}")
-    pdf.drawRightString(CARD_WIDTH - 3 * mm, 3 * mm, "app.suraksha.com/scan")
+    footer_url = settings.frontend_base_url.replace("https://", "").replace("http://", "")
+    pdf.drawRightString(CARD_WIDTH - 3 * mm, 3 * mm, f"{footer_url}/scan")
 
     pdf.showPage()
     pdf.save()
