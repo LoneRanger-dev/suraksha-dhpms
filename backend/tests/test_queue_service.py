@@ -1,9 +1,11 @@
 from datetime import date
 
+import fakeredis
 import pytest
 
 from app.models import Appointment, Department, Doctor, Patient, User
 from app.models.enums import GenderType, UserRole
+from app.services import queue_service
 from app.services.queue_service import generate_queue_token
 
 
@@ -105,3 +107,24 @@ async def test_token_does_not_count_other_departments(async_session):
 
     token = await generate_queue_token(async_session, cardio, on_date=date(2026, 8, 14))
     assert token == "CARDIO-001"
+
+
+@pytest.mark.asyncio
+async def test_repeated_token_requests_before_any_are_persisted_stay_unique(async_session, monkeypatch):
+    """Simulates the real race: multiple bookings call generate_queue_token
+    before any of their appointments are actually inserted/committed (as
+    happens in the appointments API - the token is generated first). The
+    old plain DB-count approach would hand out the same token to all of
+    them since the count never changes; the Redis-backed counter must not."""
+    dept = Department(name="Cardiology")
+    async_session.add(dept)
+    await async_session.flush()
+
+    fake_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(queue_service, "get_redis_client", lambda: fake_client)
+
+    tokens = [
+        await generate_queue_token(async_session, dept, on_date=date(2026, 8, 14)) for _ in range(3)
+    ]
+
+    assert tokens == ["CARDIO-001", "CARDIO-002", "CARDIO-003"]
