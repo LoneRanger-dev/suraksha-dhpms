@@ -133,6 +133,9 @@ export default function AdminDoctorsPage() {
           <Link href="/admin/memberships" className="text-sm text-muted-foreground underline">
             Membership Plans
           </Link>
+          <Link href="/admin/billing" className="text-sm text-muted-foreground underline">
+            Billing
+          </Link>
         </div>
       </div>
 
