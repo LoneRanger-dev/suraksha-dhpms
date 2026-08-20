@@ -2,9 +2,10 @@ import uuid
 from datetime import date
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
-from app.models import Department, Doctor, MembershipPlan, User
+from app.models import AuditLog, Department, Doctor, MembershipPlan, User
 from app.models.enums import MembershipTier, UserRole
 
 
@@ -39,6 +40,22 @@ async def test_register_patient_creates_display_id_and_qr_card(client, async_ses
     body = response.json()
     assert body["patient_display_id"].startswith("SUR-")
     assert body["qr_card"]["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_register_patient_writes_audit_log(client, async_session):
+    plan = await _create_plan(async_session)
+
+    response = await client.post("/api/v1/patients", json=_payload(plan.plan_id, phone="+919876500050"))
+    assert response.status_code == 201
+    patient_id = uuid.UUID(response.json()["patient_id"])
+
+    result = await async_session.execute(select(AuditLog).where(AuditLog.entity_id == patient_id))
+    logs = result.scalars().all()
+
+    assert len(logs) == 1
+    assert logs[0].action == "CREATE"
+    assert logs[0].entity_affected == "patient"
 
 
 @pytest.mark.asyncio

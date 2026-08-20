@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models import Invoice, InvoiceItem, Patient, User
 from app.models.enums import UserRole
 from app.schemas.billing import BillingSummaryRead, InvoiceCreate, InvoiceListItem, InvoiceRead
+from app.services.audit_service import record_audit
 from app.services.discount_engine import LineItemInput, calculate_invoice_breakdown
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
@@ -57,6 +58,15 @@ async def create_invoice(
         )
     db.add(invoice)
     await db.commit()
+
+    await record_audit(
+        db,
+        performed_by=current_user.user_id,
+        action="CREATE",
+        entity_affected="invoice",
+        entity_id=invoice.invoice_id,
+    )
+
     return InvoiceRead.model_validate(invoice)
 
 

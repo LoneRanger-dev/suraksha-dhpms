@@ -23,6 +23,7 @@ from app.schemas.patient import (
 )
 from app.schemas.prescription import PrescriptionRead
 from app.schemas.visit import VisitRead
+from app.services.audit_service import record_audit
 from app.services.patient_id_service import generate_patient_display_id
 from app.services.qr_service import issue_qr_card
 
@@ -95,6 +96,14 @@ async def register_patient(payload: PatientCreate, db: AsyncSession = Depends(ge
     await db.commit()
     await db.refresh(patient)
     await db.refresh(card)
+
+    await record_audit(
+        db,
+        performed_by=user.user_id,
+        action="CREATE",
+        entity_affected="patient",
+        entity_id=patient.patient_id,
+    )
 
     return _to_patient_read(patient, card)
 

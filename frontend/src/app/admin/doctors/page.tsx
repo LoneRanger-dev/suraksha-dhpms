@@ -136,6 +136,9 @@ export default function AdminDoctorsPage() {
           <Link href="/admin/billing" className="text-sm text-muted-foreground underline">
             Billing
           </Link>
+          <Link href="/admin/audit-logs" className="text-sm text-muted-foreground underline">
+            Audit Logs
+          </Link>
         </div>
       </div>
 

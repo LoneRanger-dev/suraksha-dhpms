@@ -63,9 +63,14 @@ export default function AdminBillingPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Billing & Reports</h1>
-        <Link href="/admin/doctors" className="text-sm text-muted-foreground underline">
-          Doctors & Departments
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/admin/doctors" className="text-sm text-muted-foreground underline">
+            Doctors & Departments
+          </Link>
+          <Link href="/admin/audit-logs" className="text-sm text-muted-foreground underline">
+            Audit Logs
+          </Link>
+        </div>
       </div>
 
       {loading ? (

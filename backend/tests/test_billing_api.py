@@ -1,10 +1,12 @@
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
-from app.models import MembershipPlan, Patient, QRCard, User
+from app.models import AuditLog, MembershipPlan, Patient, QRCard, User
 from app.models.enums import GenderType, MembershipTier, UserRole
 
 
@@ -58,6 +60,14 @@ async def test_receptionist_creates_invoice_with_membership_discount(client, asy
     assert response.status_code == 201
     body = response.json()
     assert Decimal(str(body["net_amount"])) == Decimal("400.00")
+
+    invoice_id = uuid.UUID(body["invoice_id"])
+    result = await async_session.execute(select(AuditLog).where(AuditLog.entity_id == invoice_id))
+    logs = result.scalars().all()
+    assert len(logs) == 1
+    assert logs[0].action == "CREATE"
+    assert logs[0].entity_affected == "invoice"
+    assert logs[0].performed_by == receptionist.user_id
     assert Decimal(str(body["discount_amount"])) == Decimal("100.00")
     assert len(body["items"]) == 1
 

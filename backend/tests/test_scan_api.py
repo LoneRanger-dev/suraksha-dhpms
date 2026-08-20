@@ -2,9 +2,10 @@ import uuid
 from datetime import date, timedelta
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
-from app.models import MembershipPlan, Patient, QRCard, User
+from app.models import AuditLog, MembershipPlan, Patient, QRCard, User
 from app.models.enums import GenderType, MembershipTier, UserRole
 
 
@@ -69,6 +70,42 @@ async def test_scan_as_receptionist_returns_full_dossier(client, async_session):
     body = response.json()
     assert body["patient_display_id"] == "SUR-2026-000500"
     assert body["membership_tier"] == "GOLD"
+
+
+@pytest.mark.asyncio
+async def test_staff_scan_writes_read_audit_log(client, async_session):
+    patient, card = await _register_patient_with_card(async_session)
+
+    staff = User(phone="+919999998887", password_hash=hash_password("x"), role=UserRole.NURSE)
+    async_session.add(staff)
+    await async_session.commit()
+    await async_session.refresh(staff)
+
+    token = create_access_token(subject=str(staff.user_id), role="NURSE")
+
+    response = await client.get(f"/api/v1/scan/{card.token_uuid}", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+
+    result = await async_session.execute(select(AuditLog).where(AuditLog.entity_id == patient.patient_id))
+    logs = result.scalars().all()
+
+    assert len(logs) == 1
+    assert logs[0].action == "READ"
+    assert logs[0].entity_affected == "patient"
+    assert logs[0].performed_by == staff.user_id
+
+
+@pytest.mark.asyncio
+async def test_public_scan_does_not_write_audit_log(client, async_session):
+    patient, card = await _register_patient_with_card(async_session)
+
+    response = await client.get(f"/api/v1/scan/{card.token_uuid}")
+    assert response.status_code == 200
+
+    result = await async_session.execute(select(AuditLog).where(AuditLog.entity_id == patient.patient_id))
+    logs = result.scalars().all()
+
+    assert len(logs) == 0
 
 
 @pytest.mark.asyncio

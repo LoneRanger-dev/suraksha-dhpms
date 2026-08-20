@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models import MembershipPlan, Patient, QRCard, User
 from app.models.enums import UserRole
 from app.schemas.scan import PublicScanView, StaffScanView
+from app.services.audit_service import record_audit
 
 router = APIRouter(prefix="/api/v1/scan", tags=["scan"])
 
@@ -53,6 +54,13 @@ async def resolve_scan(
 
     if current_user is not None and current_user.role in STAFF_ROLES:
         plan = await db.get(MembershipPlan, card.plan_id)
+        await record_audit(
+            db,
+            performed_by=current_user.user_id,
+            action="READ",
+            entity_affected="patient",
+            entity_id=patient.patient_id,
+        )
         return StaffScanView(
             patient_id=patient.patient_id,
             patient_display_id=patient.patient_display_id,

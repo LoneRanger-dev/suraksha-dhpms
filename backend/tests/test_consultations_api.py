@@ -1,9 +1,11 @@
+import uuid
 from datetime import date
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
-from app.models import Department, Doctor, Patient, User
+from app.models import AuditLog, Department, Doctor, Patient, User
 from app.models.enums import GenderType, UserRole
 
 
@@ -117,6 +119,13 @@ async def test_doctor_creates_prescription_for_visit(client, async_session):
     assert len(body["items"]) == 1
     assert body["items"][0]["medicine_name"] == "Paracetamol"
 
+    prescription_id = uuid.UUID(body["prescription_id"])
+    result = await async_session.execute(select(AuditLog).where(AuditLog.entity_id == prescription_id))
+    logs = result.scalars().all()
+    assert len(logs) == 1
+    assert logs[0].action == "CREATE"
+    assert logs[0].entity_affected == "prescription"
+
 
 @pytest.mark.asyncio
 async def test_get_patient_history_returns_visits_newest_first(client, async_session):
@@ -136,6 +145,14 @@ async def test_get_patient_history_returns_visits_newest_first(client, async_ses
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["chief_complaint"] == "Cough"
+
+    result = await async_session.execute(
+        select(AuditLog).where(AuditLog.entity_id == patient.patient_id, AuditLog.action == "READ")
+    )
+    logs = result.scalars().all()
+    assert len(logs) == 1
+    assert logs[0].entity_affected == "patient_history"
+    assert logs[0].performed_by == doc_user.user_id
 
 
 @pytest.mark.asyncio
@@ -291,6 +308,15 @@ async def test_pharmacist_dispenses_a_prescription(client, async_session):
     assert response.status_code == 200
     assert response.json()["dispensed"] is True
     assert response.json()["dispensed_at"] is not None
+
+    prescription_uuid = uuid.UUID(prescription_id)
+    result = await async_session.execute(
+        select(AuditLog).where(AuditLog.entity_id == prescription_uuid, AuditLog.action == "UPDATE")
+    )
+    logs = result.scalars().all()
+    assert len(logs) == 1
+    assert logs[0].entity_affected == "prescription"
+    assert logs[0].performed_by == pharmacist.user_id
 
 
 @pytest.mark.asyncio

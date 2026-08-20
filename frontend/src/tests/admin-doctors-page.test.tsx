@@ -74,8 +74,11 @@ describe("AdminDoctorsPage", () => {
     const patientsLink = screen.getByRole("link", { name: /^patients$/i });
     expect(patientsLink.getAttribute("href")).toBe("/admin/patients");
 
-    const billingLink = screen.getByRole("link", { name: /billing/i });
+    const billingLink = screen.getByRole("link", { name: /^billing$/i });
     expect(billingLink.getAttribute("href")).toBe("/admin/billing");
+
+    const auditLogsLink = screen.getByRole("link", { name: /audit logs/i });
+    expect(auditLogsLink.getAttribute("href")).toBe("/admin/audit-logs");
   });
 
   it("adds a new department", async () => {

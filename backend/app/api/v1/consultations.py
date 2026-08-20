@@ -12,6 +12,7 @@ from app.models import Appointment, Doctor, Patient, Prescription, PrescriptionI
 from app.models.enums import AppointmentStatus, UserRole
 from app.schemas.prescription import PrescriptionCreate, PrescriptionRead
 from app.schemas.visit import FollowUpItem, VisitCreate, VisitRead
+from app.services.audit_service import record_audit
 from app.services.prescription_pdf_service import generate_prescription_pdf
 
 router = APIRouter(prefix="/api/v1/consultations", tags=["consultations"])
@@ -64,6 +65,15 @@ async def record_visit(
 
     await db.commit()
     await db.refresh(visit)
+
+    await record_audit(
+        db,
+        performed_by=current_user.user_id,
+        action="CREATE",
+        entity_affected="visit",
+        entity_id=visit.visit_id,
+    )
+
     return VisitRead.model_validate(visit)
 
 
@@ -100,6 +110,15 @@ async def create_prescription(
         )
     db.add(prescription)
     await db.commit()
+
+    await record_audit(
+        db,
+        performed_by=current_user.user_id,
+        action="CREATE",
+        entity_affected="prescription",
+        entity_id=prescription.prescription_id,
+    )
+
     return PrescriptionRead.model_validate(prescription)
 
 
@@ -114,6 +133,15 @@ async def get_patient_history(
 
     result = await db.execute(select(Visit).where(Visit.patient_id == patient_id).order_by(Visit.visit_date.desc()))
     visits = result.scalars().all()
+
+    await record_audit(
+        db,
+        performed_by=current_user.user_id,
+        action="READ",
+        entity_affected="patient_history",
+        entity_id=patient_id,
+    )
+
     return [VisitRead.model_validate(v) for v in visits]
 
 
@@ -184,6 +212,15 @@ async def dispense_prescription(
     prescription.dispensed = True
     prescription.dispensed_at = datetime.now(timezone.utc)
     await db.commit()
+
+    await record_audit(
+        db,
+        performed_by=current_user.user_id,
+        action="UPDATE",
+        entity_affected="prescription",
+        entity_id=prescription.prescription_id,
+    )
+
     return PrescriptionRead.model_validate(prescription)
 
 

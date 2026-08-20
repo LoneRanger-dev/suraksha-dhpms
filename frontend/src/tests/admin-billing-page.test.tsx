@@ -69,5 +69,8 @@ describe("AdminBillingPage", () => {
     expect(await screen.findByText("Billing List Patient")).toBeInTheDocument();
     expect(screen.getByText(/₹700/)).toBeInTheDocument();
     expect(screen.getByText(/2 invoices/i)).toBeInTheDocument();
+
+    const auditLogsLink = screen.getByRole("link", { name: /audit logs/i });
+    expect(auditLogsLink.getAttribute("href")).toBe("/admin/audit-logs");
   });
 });
